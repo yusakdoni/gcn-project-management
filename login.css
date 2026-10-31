@@ -475,3 +475,8 @@ form label {
     scroll-behavior: auto !important;
   }
 }
+
+/* Official GCN logo displayed in the login screen */
+.brand-logo { display: flex; align-items: center; flex: 0 0 auto; }
+.brand-logo img { display: block; width: auto; max-width: 148px; height: 48px; object-fit: contain; }
+.mobile-brand .brand-logo img { max-width: 120px; height: 40px; }
