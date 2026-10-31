@@ -80,6 +80,9 @@ const publicDir = __dirname;
 app.get('/login', (req, res) => req.session.user ? res.redirect('/') : res.sendFile(path.join(publicDir, 'login.html')));
 app.get('/login.css', (_req, res) => res.sendFile(path.join(publicDir, 'login.css')));
 app.get('/login.js', (_req, res) => res.sendFile(path.join(publicDir, 'login.js')));
+// Login branding assets must be reachable before authentication.
+app.get('/assets/gcn-logoweb.png', (_req, res) => res.sendFile(path.join(publicDir, 'assets', 'gcn-logoweb.png')));
+app.get('/assets/favicon.png', (_req, res) => res.sendFile(path.join(publicDir, 'assets', 'favicon.png')));
 app.get('/health', (_req, res) => res.json({ status: 'ok', app: 'GCN Monitor', mode: NODE_ENV }));
 app.post('/api/auth/login', loginLimiter, (req, res) => {
  const email = String(req.body.email || '').trim().toLowerCase();
