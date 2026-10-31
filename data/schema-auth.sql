@@ -1,0 +1,18 @@
+CREATE TABLE users (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+ full_name TEXT NOT NULL,
+ password_hash TEXT NOT NULL,
+ role TEXT NOT NULL CHECK(role IN ('admin','project_manager','project_staff','finance_staff')),
+ active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE audit_logs (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+ action TEXT NOT NULL,
+ details TEXT,
+ ip_address TEXT,
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

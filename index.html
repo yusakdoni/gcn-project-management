@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>GCN Project Management System</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="side" id="appSidebar">
+        <div class="sidehead">
+          <div class="brand">GCN<span>Project Management</span></div>
+          <button
+            class="mobile-nav-toggle"
+            id="mobileNavToggle"
+            type="button"
+            aria-expanded="false"
+            aria-controls="nav"
+            aria-label="Buka menu navigasi"
+          >☰ <span>Menu</span></button>
+        </div>
+        <nav class="nav" id="nav" aria-label="Navigasi utama"></nav>
+        <div class="sidefoot">
+          ● <br /><span style="color: #64748b">Data simulasi lokal</span>
+        </div>
+      </aside>
+      <main class="main">
+        <header class="top">
+          <b id="crumb">Dashboard</b>
+          <div class="top-actions">
+            <span class="badge">● PROTOTYPE</span
+            ><span class="session-user" id="sessionUser">Memuat akun…</span
+            ><button class="logout-btn" id="logoutBtn" type="button">
+              Keluar ↗
+            </button>
+          </div>
+        </header>
+        <div class="content" id="view"></div>
+        <footer class="footer">GCN Project Management ·</footer>
+      </main>
+    </div>
+    <div id="modal"></div>
+    <div id="toast"></div>
+    <script src="session-ui.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

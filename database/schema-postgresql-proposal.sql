@@ -1,0 +1,19 @@
+-- PROPOSAL ONLY: PostgreSQL schema for future shared finance database.
+-- Not automatically executed by the current SQLite authentication demo.
+BEGIN;
+CREATE TABLE IF NOT EXISTS roles (role_code TEXT PRIMARY KEY, role_name TEXT NOT NULL UNIQUE);
+INSERT INTO roles(role_code,role_name) VALUES ('admin','Admin Sistem'),('project_manager','Manajer Proyek'),('project_staff','Staf Proyek'),('finance_staff','Staf Keuangan') ON CONFLICT(role_code) DO NOTHING;
+CREATE TABLE IF NOT EXISTS profiles (id UUID PRIMARY KEY, email TEXT NOT NULL UNIQUE, full_name TEXT NOT NULL, role_code TEXT NOT NULL REFERENCES roles(role_code), active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS projects (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), project_code TEXT NOT NULL UNIQUE, name TEXT NOT NULL, client_name TEXT NOT NULL, manager_profile_id UUID REFERENCES profiles(id) ON DELETE RESTRICT, status TEXT NOT NULL CHECK(status IN ('Perencanaan','Berjalan','Tertunda','Selesai','Diarsipkan')), progress SMALLINT NOT NULL DEFAULT 0 CHECK(progress BETWEEN 0 AND 100), start_date DATE, due_date DATE, contract_amount NUMERIC(18,2) NOT NULL DEFAULT 0 CHECK(contract_amount>=0), budget_amount NUMERIC(18,2) NOT NULL DEFAULT 0 CHECK(budget_amount>=0), archived_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), CHECK(due_date IS NULL OR start_date IS NULL OR due_date>=start_date));
+CREATE TABLE IF NOT EXISTS project_members (project_id UUID NOT NULL REFERENCES projects(id) ON DELETE RESTRICT, profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE RESTRICT, membership_role TEXT NOT NULL DEFAULT 'member', created_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY(project_id,profile_id));
+CREATE TABLE IF NOT EXISTS costs (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), project_id UUID NOT NULL REFERENCES projects(id) ON DELETE RESTRICT, category TEXT NOT NULL, description TEXT NOT NULL, amount NUMERIC(18,2) NOT NULL CHECK(amount>=0), incurred_on DATE NOT NULL, created_by UUID REFERENCES profiles(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS invoices (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), project_id UUID NOT NULL REFERENCES projects(id) ON DELETE RESTRICT, invoice_number TEXT NOT NULL UNIQUE, client_name TEXT NOT NULL, amount NUMERIC(18,2) NOT NULL CHECK(amount>0), issue_date DATE, due_date DATE, status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','issued','partially_paid','paid','void')), created_by UUID REFERENCES profiles(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS payments (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), invoice_id UUID NOT NULL REFERENCES invoices(id) ON DELETE RESTRICT, payment_reference TEXT NOT NULL UNIQUE, amount NUMERIC(18,2) NOT NULL CHECK(amount>0), paid_on DATE NOT NULL, note TEXT, recorded_by UUID REFERENCES profiles(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS audit_logs (id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, actor_profile_id UUID REFERENCES profiles(id) ON DELETE SET NULL, action TEXT NOT NULL, entity_type TEXT, entity_id TEXT, details JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
+CREATE INDEX IF NOT EXISTS idx_costs_project_date ON costs(project_id,incurred_on);
+CREATE INDEX IF NOT EXISTS idx_invoices_project_status ON invoices(project_id,status);
+CREATE INDEX IF NOT EXISTS idx_payments_invoice ON payments(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);
+-- RLS policies and transactional payment cap must be designed and tested before production.
+COMMIT;

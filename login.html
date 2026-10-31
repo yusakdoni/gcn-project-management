@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b1730" />
+    <title>Masuk — GCN</title>
+    <link rel="stylesheet" href="login.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="visual" aria-label="Informasi aplikasi">
+        <div class="visual-top">
+          <div class="mark"><span>G</span><span>CN</span></div>
+          <span class="product-label">PROJECT INTELLIGENCE</span>
+        </div>
+        <div class="visual-copy">
+          <div class="eyebrow">
+            <span class="live-dot"></span> PROJECT &amp; FINANCE MONITORING
+          </div>
+          <h1>Semua proyek.<br /><em>Satu kendali.</em></h1>
+          <p>
+            Pantau progres, kendalikan anggaran, dan pahami kondisi proyek dalam
+            satu ruang kerja yang terintegrasi.
+          </p>
+          <div class="mini-dashboard" aria-hidden="true">
+            <div class="mini-head">
+              <span>PROJECT OVERVIEW</span><span class="period">DEMO VIEW</span>
+            </div>
+            <div class="mini-metrics">
+              <div>
+                <small>Project health</small><strong>On track <i>↗</i></strong>
+              </div>
+              <div>
+                <small>Budget visibility</small><strong>Real-time*</strong>
+              </div>
+            </div>
+            <div class="bars">
+              <span style="height: 34%"></span><span style="height: 48%"></span
+              ><span style="height: 43%"></span><span style="height: 64%"></span
+              ><span style="height: 57%"></span><span style="height: 78%"></span
+              ><span style="height: 69%"></span><span style="height: 92%"></span
+              ><span style="height: 82%"></span
+              ><span style="height: 100%"></span
+              ><span style="height: 88%"></span
+              ><span style="height: 96%"></span>
+            </div>
+            <div class="mini-foot">
+              <span><b></b> Progress visibility</span
+              ><span>Illustrative preview</span>
+            </div>
+          </div>
+        </div>
+        <div class="visual-foot">
+          <span>GCN</span><span>BUILT FOR BETTER PROJECT CONTROL</span>
+        </div>
+      </section>
+      <section class="login-side">
+        <div class="login-wrap">
+          <div class="mobile-brand">
+            <div class="mark">G<span>CN</span></div>
+            <span>GCN</span>
+          </div>
+          <div class="welcome">
+            <div class="welcome-icon">↗</div>
+            <div class="eyebrow">SELAMAT DATANG KEMBALI</div>
+            <h2>Masuk ke GCN Project Management System</h2>
+            <p>Gunakan akun yang telah didaftarkan administrator.</p>
+          </div>
+          <form id="loginForm" novalidate>
+            <label for="email">Email kerja</label>
+            <div class="input-wrap">
+              <span class="input-icon" aria-hidden="true">✉</span
+              ><input
+                id="email"
+                name="email"
+                type="email"
+                autocomplete="username"
+                placeholder="nama@gcnusantara.com"
+                maxlength="254"
+                required
+              />
+            </div>
+            <div class="password-label">
+              <label for="password">Password</label
+              ><span class="secure-note">Dilindungi sesi</span>
+            </div>
+            <div class="input-wrap">
+              <span class="input-icon" aria-hidden="true">⌑</span
+              ><input
+                id="password"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                placeholder="Masukkan password"
+                maxlength="200"
+                required
+              /><button
+                class="toggle"
+                id="togglePassword"
+                type="button"
+                aria-label="Tampilkan password"
+              >
+                Lihat
+              </button>
+            </div>
+            <div
+              id="message"
+              class="message"
+              role="alert"
+              aria-live="polite"
+              hidden
+            ></div>
+            <button id="submitButton" class="submit" type="submit">
+              <span class="button-label">Masuk ke workspace</span
+              ><span class="arrow">→</span>
+            </button>
+            <div class="form-note">
+              <span class="shield">◆</span> Akses hanya untuk pengguna yang
+              terdaftar.
+            </div>
+          </form>
+          <div class="login-bottom">
+            <span
+              >© 2026 GCN Project Management System · Capstone Project Kelompok
+              A</span
+            ><span>Universitas Terbuka</span>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script src="login.js" defer></script>
+  </body>
+</html>
