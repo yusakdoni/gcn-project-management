@@ -276,7 +276,7 @@ function render() {
   } else if (page === "finance") {
     const canCreate = ["admin","finance_staff"].includes(currentUser?.role);
     const expenseAction = (c) => {
-      const actions = [];
+      const actions = ['<button class="btn mini" data-action="expense-history" data-id="'+c.id+'">Riwayat</button>'];
       if (c.receipt) actions.push('<button class="btn mini" data-action="view-receipt" data-id="'+c.id+'">Lihat Bukti</button><button class="btn mini" data-action="download-receipt" data-id="'+c.id+'">Unduh</button>');
       if (c.createdBy === currentUser?.id && ["DRAFT","REJECTED"].includes(c.status)) {
         actions.push('<button class="btn mini" data-action="edit-expense" data-id="'+c.id+'">Edit</button>');
@@ -459,6 +459,13 @@ async function removeReceipt(id) {
  if(!confirm("Hapus lampiran dari draft ini?"))return;
  try{await api("/api/expenses/"+id+"/receipt","DELETE");document.getElementById("storedReceiptNote")?.remove();await reloadData();flash("Bukti dihapus.");}catch(e){alert(e.message);}
 }
+async function showExpenseHistory(id) {
+ try {
+   const response=await api("/api/expenses/"+id+"/history");
+   const rows=response.history.map(h=>'<tr><td>'+escapeHTML(h.createdAt)+'</td><td>'+escapeHTML(h.action)+'</td><td>'+escapeHTML(h.fromStatus||"—")+' → '+escapeHTML(h.toStatus)+'</td><td>'+escapeHTML(h.reason||"—")+'</td><td>UID '+escapeHTML(h.actorId)+'</td></tr>').join("");
+   modal("Riwayat Persetujuan",'<div class="tablewrap"><table><thead><tr><th>Waktu</th><th>Aksi</th><th>Status</th><th>Alasan</th><th>Pengguna</th></tr></thead><tbody>'+rows+'</tbody></table></div>',"readonly",'<div class="modal-footer"><button class="btn" type="button" data-action="close-modal">Tutup</button></div>');
+ }catch(e){alert(e.message);}
+}
 async function markNotice(id) {
  try{await api("/api/notifications/"+id+"/read","POST",{});await reloadData();}catch(e){alert(e.message);}
 }
@@ -628,6 +635,7 @@ document.addEventListener("click", (event) => {
     case "submit-cost-modal": addCost(true); break;
     case "clear-receipt-input": document.getElementById("receiptFile").value="";showReceiptSelection(); break;
     case "delete-receipt": removeReceipt(id); break;
+    case "expense-history": showExpenseHistory(id); break;
     case "view-receipt": openReceipt(id,false); break;
     case "download-receipt": openReceipt(id,true); break;
     case "approve-expense": decideExpense(id,"approve"); break;
