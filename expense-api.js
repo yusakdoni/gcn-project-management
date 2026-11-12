@@ -133,7 +133,7 @@ function setupExpenseApi(app, db, requireAuth, requireRole) {
    const e=singleExpense.get(toId(req.params.id)),u=req.session.user;const error=readError(req,res,e);if(error)return error;
    if(e.created_by!==u.id||!['DRAFT','REJECTED'].includes(e.status))return jsonError(res,409,'Lampiran hanya bisa diganti sebelum pengajuan.');
    const {filename,mime,base64}=req.body||{};
-   if(typeof filename!=='string'||!filename.trim()||filename.length>180||/[\\/\x00-\x1f]/.test(filename)||typeof base64!=='string'||base64.length>7_100_000||!/^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(base64))return jsonError(res,400,'File atau nama file tidak valid.');
+   if(typeof filename!=='string'||!filename.trim()||filename.length>180||/[\\/\x00-\x1f]/.test(filename)||typeof base64!=='string'||base64.length>Math.ceil(MAX_FILE/3)*4||base64.length%4!==0||!/^[A-Za-z0-9+/]+={0,2}$/.test(base64))return jsonError(res,400,'File atau nama file tidak valid.');
    const data=Buffer.from(base64,'base64');const type=validContent(data,mime);
    if(!type)return jsonError(res,400,'Lampiran harus PDF/JPG/PNG yang valid dan maksimal 5 MB.');
    const sha=crypto.createHash('sha256').update(data).digest('hex');
