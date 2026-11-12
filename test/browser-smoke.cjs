@@ -74,10 +74,67 @@ async function login(page,email,password){await page.goto(base+'/login');await p
   await page.locator('button[data-page="finance"]').click();
   await page.locator('tbody tr').filter({hasText:'Kuitansi test browser'}).getByText('CANCELLED').waitFor();
   await page.screenshot({path:path.join(root,'artifacts','expense-cancelled.png'),fullPage:true});
+  // Regressions: invoice and incoming payment now use the shared server database.
+  await page.locator('button[data-page="invoices"]').click();
+  await page.locator('[data-action="invoice-modal"]').click();
+  await page.locator('#ip').selectOption('1');
+  await page.locator('#inum').fill('INV-BROWSER-UAT');
+  await page.locator('#ia').fill('100000');
+  await page.locator('#idate').fill('2026-12-01');
+  await page.locator('#modal .btn.primary').click();
+  await page.locator('#modal .modal').waitFor({state:'hidden'});
+  const invoiceRow=page.locator('tbody tr').filter({hasText:'INV-BROWSER-UAT'});
+  await invoiceRow.waitFor();
+  await invoiceRow.locator('[data-action="payment-modal"]').click();
+  await page.locator('#payamount').fill('40000');
+  await page.locator('#paydate').fill('2026-11-12');
+  await page.locator('#paynote').fill('Pembayaran regresi simulasi');
+  await page.locator('#modal .btn.primary').click();
+  await page.locator('#modal .modal').waitFor({state:'hidden'});
+  const currentInvoices=await page.evaluate(async()=>{const r=await fetch('/api/invoices');return r.json();});
+  const invoice=currentInvoices.invoices.find(i=>i.number==='INV-BROWSER-UAT');
+  assert.ok(invoice);
+  assert.equal(invoice.payments.reduce((n,p)=>n+p.amount,0),40000);
+  await page.reload();
+  await page.locator('button[data-page="invoices"]').click();
+  await page.locator('tbody tr').filter({hasText:'INV-BROWSER-UAT'}).waitFor();
+  await page.screenshot({path:path.join(root,'artifacts','invoice-server-persistence.png'),fullPage:true});
+
+  // Legacy browser backup remains available without deleting original keys.
+  await page.evaluate(()=>localStorage.setItem('gcnC',JSON.stringify([{id:991,description:'legacy test'}])));
+  await page.locator('button[data-page="legacy"]').click();
+  const download=page.waitForEvent('download');
+  await page.locator('[data-action="export-legacy"]').click();
+  const exportFile=await download;
+  assert.equal(exportFile.suggestedFilename(),'gcn-monitor-legacy-browser-backup.json');
+  assert.match(await page.evaluate(()=>localStorage.getItem('gcnC')),/legacy test/);
+  await page.screenshot({path:path.join(root,'artifacts','legacy-backup.png'),fullPage:true});
+
+  // Regression: project creation/progress update from the admin account.
+  await page.locator('button[data-page="projects"]').click();
+  await page.locator('[data-action="project-modal"]').click();
+  await page.locator('#pn').fill('Proyek Simulasi Browser QA');
+  await page.locator('#pc').fill('Klien Demo QA');
+  await page.locator('#pstart').fill('2026-11-01');
+  await page.locator('#pdue').fill('2026-12-01');
+  await page.locator('#pcontract').fill('500000');
+  await page.locator('#pbudget').fill('400000');
+  await page.locator('#modal .btn.primary').click();
+  await page.locator('#modal .modal').waitFor({state:'hidden'});
+  const newRow=page.locator('tbody tr').filter({hasText:'Proyek Simulasi Browser QA'});
+  await newRow.waitFor();
+  await newRow.locator('[data-action="detail"]').click();
+  await page.locator('[data-action="update-progress"]').fill('40');
+  await page.locator('[data-action="update-progress"]').dispatchEvent('change');
+  await page.getByText('40%',{exact:true}).first().waitFor();
+  await page.screenshot({path:path.join(root,'artifacts','project-progress.png'),fullPage:true});
+
   await page.setViewportSize({width:390,height:844});
   await page.locator('#mobileNavToggle').click();
   await page.screenshot({path:path.join(root,'artifacts','expense-mobile.png'),fullPage:true});
-  console.log('BROWSER QA PASSED: upload preview, submission, PM receipt, approval, cancellation, mobile render.');
+  await page.locator('#logoutBtn').click();
+  await page.waitForURL(base+'/login');
+  console.log('BROWSER QA PASSED: receipt, approval, cancellation, invoice/payment, legacy export, project progress, responsive and logout.');
   await adminCtx.close();await pmCtx.close();
  }catch(e){console.error(e);process.exitCode=1;}
  finally{await browser?.close().catch(()=>{});db?.close();server?.kill('SIGTERM');if(dir)fs.rmSync(dir,{recursive:true,force:true});}
