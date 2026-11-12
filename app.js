@@ -49,11 +49,11 @@ function nav() {
     ["dashboard", "Dashboard"],
     ["projects", "Proyek"],
     ["finance", "Anggaran & Biaya"],
-    ...(["project_manager","admin"].includes(currentUser?.role) ? [["approvals", currentUser?.role==="admin"?"Monitoring Approval":"Persetujuan"]] : []),
+    ...(["project_manager","admin","super_admin"].includes(currentUser?.role) ? [["approvals", ["admin","super_admin"].includes(currentUser?.role)?"Monitoring Approval":"Persetujuan"]] : []),
     ["notifications", "Notifikasi" + (notices.filter(n => !n.readAt).length ? " (" + notices.filter(n => !n.readAt).length + ")" : "")],
     ["invoices", "Invoice & Pembayaran"],
     ["reports", "Laporan"],
-    ...(currentUser?.role==="admin" ? [["legacy", "Backup Data Lama"]] : []),
+    ...(["admin","super_admin"].includes(currentUser?.role) ? [["legacy", "Backup Data Lama"]] : []),
   ];
 
   const navElement = document.getElementById("nav");
@@ -86,7 +86,7 @@ function kpi(label, value, note) {
   return `<div class="card"><div class="label">${label}</div><div class="value">${value}</div><div class="note">${note}</div></div>`;
 }
 function table(rows, withDelete = true) {
-  return `<div class="tablewrap"><table><thead><tr><th>Nama Proyek</th><th>Klien</th><th>Status</th><th>Progres</th><th>Deadline</th><th>Nilai Kontrak</th><th>Aksi</th></tr></thead><tbody>${rows.map((p) => `<tr><td><b>${escapeHTML(p.name)}</b><small>${escapeHTML(p.code)}</small></td><td>${escapeHTML(p.client)}</td><td><span class="status ${p.status === "Selesai" ? "green" : p.status === "Perencanaan" ? "amber" : ""}">${escapeHTML(p.status)}</span></td><td>${p.progress}%<div class="progress"><i style="width:${p.progress}%"></i></div></td><td>${escapeHTML(p.due)}</td><td>${money(p.contract)}</td><td><div class="actions"><button class="btn mini" data-action="detail" data-id="${p.id}">Detail</button>${withDelete && currentUser?.role === "admin" ? `<button class="btn mini" data-action="delete-project" data-id="${p.id}">Hapus</button>` : ""}</div></td></tr>`).join("")}</tbody></table>${rows.length ? "" : '<div class="empty">Tidak ada data.</div>'}</div>`;
+  return `<div class="tablewrap"><table><thead><tr><th>Nama Proyek</th><th>Klien</th><th>Status</th><th>Progres</th><th>Deadline</th><th>Nilai Kontrak</th><th>Aksi</th></tr></thead><tbody>${rows.map((p) => `<tr><td><b>${escapeHTML(p.name)}</b><small>${escapeHTML(p.code)}</small></td><td>${escapeHTML(p.client)}</td><td><span class="status ${p.status === "Selesai" ? "green" : p.status === "Perencanaan" ? "amber" : ""}">${escapeHTML(p.status)}</span></td><td>${p.progress}%<div class="progress"><i style="width:${p.progress}%"></i></div></td><td>${escapeHTML(p.due)}</td><td>${money(p.contract)}</td><td><div class="actions"><button class="btn mini" data-action="detail" data-id="${p.id}">Detail</button>${withDelete && ["admin","super_admin"].includes(currentUser?.role) ? `<button class="btn mini" data-action="delete-project" data-id="${p.id}">Hapus</button>` : ""}</div></td></tr>`).join("")}</tbody></table>${rows.length ? "" : '<div class="empty">Tidak ada data.</div>'}</div>`;
 }
 function render() {
   nav();
@@ -104,7 +104,7 @@ function render() {
   let el = document.getElementById("view");
   let head = (title, sub, btn = "") =>
     `<div class="title"><div><h1>${title}</h1><p>${sub}</p></div>${btn}</div>`;
-  let addP = currentUser?.role === 'admin' ?
+  let addP = ["admin","super_admin"].includes(currentUser?.role) ?
     '<button class="btn primary" data-action="project-modal">+ Tambah Proyek</button>' : '';
   if (page === "dashboard") {
     el.innerHTML =
@@ -131,7 +131,7 @@ function render() {
       head(
         p.name,
         escapeHTML(p.code + " · " + p.client),
-        '<button class="btn" data-action="go-projects">Kembali</button>' + (currentUser?.role === "admin" ? '<button class="btn" data-action="assign-manager-modal" data-id="'+p.id+'">Tugaskan PM</button><button class="btn" data-action="assign-member-modal" data-id="'+p.id+'">Tugaskan Staf</button>' : ""),
+        '<button class="btn" data-action="go-projects">Kembali</button>' + (["admin","super_admin"].includes(currentUser?.role) ? '<button class="btn" data-action="assign-manager-modal" data-id="'+p.id+'">Tugaskan PM</button><button class="btn" data-action="assign-member-modal" data-id="'+p.id+'">Tugaskan Staf</button>' : ""),
       ) +
       `<div class="kpis">${kpi("Progres Proyek", p.progress + "%", p.status)}${kpi("Nilai Kontrak", money(p.contract), "Nilai kontrak demo")}${kpi("Anggaran", money(p.budget), "Sisa: " + money(p.budget - costSum(p.id)))}${kpi("Deadline", p.due, "Target selesai")}</div><section class="panel"><h3>Informasi Proyek</h3><p>Ubah progres untuk simulasi monitoring.</p><div class="row"><div><p>Manajer: <b>${escapeHTML(p.manager)}</b></p><p>Mulai: <b>${p.start}</b></p><p>Biaya aktual: <b>${money(costSum(p.id))}</b></p></div><div class="field">Progres (%) <input type="range" min="0" max="100" value="${p.progress}" data-action="update-progress" data-id="${p.id}"><b>${p.progress}%</b></div></div></section>`;
   } else if (page === "finance") {
@@ -207,7 +207,7 @@ async function reloadData() {
 async function boot() {
  try {
    const profile=await api("/api/auth/me");currentUser=profile.user;
-   if(currentUser.role==="admin") {
+   if(["admin","super_admin"].includes(currentUser.role)) {
      const [pm,users]=await Promise.all([api("/api/project-managers"),api("/api/admin/users")]);
      managerUsers=pm.users;allUsers=users.users;
    }
