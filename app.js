@@ -328,7 +328,7 @@ function closeModal() {
   document.getElementById("modal").innerHTML = "";
 }
 async function api(path,method="GET",body) {
- const response=await fetch(path,{method,credentials:"same-origin",headers:body!==undefined?{"Content-Type":"application/json"}:{},body:body===undefined?undefined:JSON.stringify(body)});
+ const response=await fetch(path,{method,credentials:"same-origin",headers:body!==undefined?{"Content-Type":"application/json","X-GCN-Request":"1"}:{"X-GCN-Request":"1"},body:body===undefined?undefined:JSON.stringify(body)});
  const payload=await response.json().catch(()=>({}));
  if(!response.ok)throw new Error(payload.error||"Permintaan gagal ("+response.status+").");
  return payload;
