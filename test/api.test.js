@@ -154,6 +154,47 @@ test('Complete GCN Monitor receipt and approval lifecycle',async(t)=>{
    const after=await request('/api/projects','GET',undefined,adminCookie);
    assert.equal(after.data.projects.find(p=>p.id===1).remainingBudget,remaining);
  });
+ await t.test('Invoices and payments remain server-side across roles and sessions',async()=>{
+   const initial=await request('/api/invoices','GET',undefined,adminCookie);
+   assert.equal(initial.status,200);
+   assert.ok(initial.data.invoices.length>=3);
+   const pmList=await request('/api/invoices','GET',undefined,pmCookie);
+   assert.equal(pmList.status,200);
+   assert.ok(pmList.data.invoices.every(i=>i.projectId===1));
+   const outsider=await request('/api/invoices','GET',undefined,otherCookie);
+   assert.equal(outsider.status,200);assert.equal(outsider.data.invoices.length,0);
+   const created=await request('/api/invoices','POST',{projectId:1,number:'INV-UAT-101',amount:500000,due:'2026-12-12'},adminCookie);
+   assert.equal(created.status,201,JSON.stringify(created.data));
+   const id=created.data.invoice.id;
+   assert.equal(created.data.invoice.isSample,false);
+   assert.equal((await request('/api/invoices','POST',{projectId:1,number:'INV-UAT-101',amount:1,due:'2026-12-12'},adminCookie)).status,409);
+   assert.equal((await request('/api/invoices','POST',{projectId:1,number:'INV-UAT-102',amount:1000,due:'2026-12-12'},otherCookie)).status,403);
+   assert.equal((await request('/api/invoices/'+id+'/payments','POST',{amount:500001,date:'2026-11-12',note:'Overpay'},adminCookie)).status,409);
+   assert.equal((await request('/api/invoices/'+id+'/payments','POST',{amount:200000,date:'2026-11-12',note:'Termin demo'},adminCookie)).status,201);
+   assert.equal((await request('/api/invoices/'+id+'/payments','POST',{amount:300001,date:'2026-11-12',note:'Overpay'},adminCookie)).status,409);
+   assert.equal((await request('/api/invoices/'+id+'/payments','POST',{amount:300000,date:'2026-11-12',note:'Final demo'},adminCookie)).status,201);
+   const final=await request('/api/invoices','GET',undefined,adminCookie);
+   const result=final.data.invoices.find(i=>i.id===id);
+   assert.deepEqual(result.payments.map(p=>p.amount),[200000,300000]);
+   assert.equal((await request('/api/invoices/'+id+'/payments','POST',{amount:1,date:'2026-11-12',note:'Extra'},adminCookie)).status,409);
+ });
+ await t.test('Online backup, restore and receipt checksum verification',async()=>{
+   const {backupDatabase}=require('../scripts/backup-db');
+   const {verifyRestore}=require('../scripts/verify-restore');
+   const filename=path.join(dir,'capstone-backup.sqlite');
+   const result=await backupDatabase(path.join(dir,'gcn-monitor.sqlite'),filename);
+   assert.equal(result.integrity,'ok');
+   assert.ok(result.stats.receipts>=1);
+   assert.ok(result.stats.invoices>=4);
+   const verified=verifyRestore(filename);
+   assert.equal(verified.integrity,'ok');
+   assert.equal(verified.receiptChecksumsVerified,result.stats.receipts);
+   assert.equal(verified.invoices,result.stats.invoices);
+   await assert.rejects(backupDatabase(path.join(dir,'gcn-monitor.sqlite'),filename),/sudah ada/);
+   const restored=new Database(filename,{readonly:true,fileMustExist:true});
+   assert.equal(restored.pragma('integrity_check',{simple:true}),'ok');
+   restored.close();
+ });
  await t.test('Private database and persistence after restart',async()=>{
    const privateData=await request('/data/gcn-monitor.sqlite','GET',undefined,adminCookie);assert.equal(privateData.status,404);
    const privateSource=await request('/expense-api.js','GET',undefined,adminCookie);assert.equal(privateSource.status,404);
