@@ -119,8 +119,9 @@ test('Complete GCN Monitor receipt and approval lifecycle',async(t)=>{
    const notes=await request('/api/notifications','GET',undefined,pmCookie);
    assert.ok(notes.data.notifications.some(n=>n.expenseId===expenseId));
    const forbidden=await request('/api/expenses/'+expenseId+'/decision','POST',{decision:'approve'},otherCookie);assert.equal(forbidden.status,403);
-   const approved=await request('/api/expenses/'+expenseId+'/decision','POST',{decision:'approve'},pmCookie);
-   assert.equal(approved.status,200);assert.equal(approved.data.expense.status,'APPROVED');
+   const concurrent=await Promise.all([request('/api/expenses/'+expenseId+'/decision','POST',{decision:'approve'},pmCookie),request('/api/expenses/'+expenseId+'/decision','POST',{decision:'approve'},pmCookie)]);
+   assert.deepEqual(concurrent.map(r=>r.status).sort((a,b)=>a-b),[200,409]);
+   const approved=concurrent.find(r=>r.status===200);assert.equal(approved.data.expense.status,'APPROVED');
    const again=await request('/api/expenses/'+expenseId+'/decision','POST',{decision:'approve'},pmCookie);assert.equal(again.status,409);
    const after=await request('/api/projects','GET',undefined,adminCookie);
    assert.equal(after.data.projects.find(p=>p.id===1).remainingBudget,remaining-10000000);
