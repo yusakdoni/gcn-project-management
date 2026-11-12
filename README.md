@@ -44,7 +44,7 @@ Buat akun dengan password unik dan kuat. Jangan menulis password, secret, atau d
 - npm test: integration test Node, Express, SQLite, file upload, authorization, approval, cancellation, budget, notifikasi, dan persistence setelah restart.
 - GitHub Actions: GCN Monitor Capstone QA pada branch ini.
 
-**Automated integration tests lulus 9/9** pada CI branch ini, tetapi UI browser, kompatibilitas smartphone, export CSV desktop, backup/restore dan redeploy hosting belum diuji secara manual. Jangan menyatakan production-ready.
+**Automated integration tests lulus 9/9** di GitHub Actions. Browser QA berbasis headless Chromium juga **PASS** untuk upload+preview PNG, pengajuan, PM melihat lampiran, approval, cancellation, dan render viewport mobile. Bukti screenshot tersedia pada artefak GitHub Actions run 43159288033. Uji perangkat fisik, PDF preview lintas browser, ekspor CSV Excel desktop, backup/restore, dan redeploy hosting nyata masih diperlukan. Jangan menyatakan production-ready.
 
 ## Batasan data lama
 
@@ -69,6 +69,10 @@ Jalankan hanya **satu instance Node.js**, dengan volume persisten untuk SQLite d
 | TRUST_PROXY | 1 hanya jika benar-benar berada di balik 1 reverse proxy HTTPS yang dipercaya |
 
 Akun harus dibuat menggunakan DATA_DIR yang sama dengan server. BLOB lampiran berada dalam database SQLite yang sama, sehingga backup database harus konsisten dengan WAL; gunakan backup API SQLite, dan **uji restore**. Lakukan smoke test 2 akun, restart dan redeploy hosting sebelum mengklaim staging stabil. Belum ada deployment URL yang terverifikasi.
+
+## Deployment container
+
+Tersedia Dockerfile dan compose.yaml untuk staging satu instance dengan named volume persisten. Docker Compose perlu SESSION_SECRET yang dibuat di luar source code. Port host dibatasi 127.0.0.1:3000 dan memerlukan reverse proxy HTTPS sebelum akses dari luar. Perintah dasar: docker compose build, docker compose up -d, lalu docker compose run --rm gcn-monitor npm run create-user dengan volume yang sama. CI juga memeriksa build Docker dan persistensi volume setelah container recreation.
 
 ## Security
 
