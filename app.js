@@ -158,7 +158,7 @@ function render() {
     const isReviewer=currentUser?.role==="project_manager";
     el.innerHTML=head(isReviewer?"Approval Inbox":"Monitoring Approval",isReviewer?"Permintaan biaya untuk proyek yang ditugaskan kepada Anda.":"Pantau pengajuan biaya seluruh proyek. Keputusan hanya dapat dilakukan PM/PIC yang ditugaskan.")+
       '<section class="panel"><div class="tablewrap"><table><thead><tr><th>Proyek</th><th>Pengeluaran</th><th>Nominal</th><th>Status</th><th>Bukti & Keputusan</th></tr></thead><tbody>'+
-      pending.map(c=>'<tr><td>'+escapeHTML(projects.find(p=>p.id===c.projectId)?.name||"—")+'</td><td>'+escapeHTML(c.description)+'</td><td>'+money(c.amount)+'</td><td>'+escapeHTML(c.status)+'</td><td><div class="actions"><button class="btn mini" data-action="view-receipt" data-id="'+c.id+'">Lihat Bukti</button><button class="btn mini" data-action="approve-expense" data-id="'+c.id+'">Approve</button><button class="btn mini" data-action="reject-expense" data-id="'+c.id+'">Reject</button></div></td></tr>').join("")+
+      pending.map(c=>'<tr><td>'+escapeHTML(projects.find(p=>p.id===c.projectId)?.name||"—")+'</td><td>'+escapeHTML(c.description)+'</td><td>'+money(c.amount)+'</td><td>'+escapeHTML(c.status)+'</td><td><div class="actions"><button class="btn mini" data-action="view-receipt" data-id="'+c.id+'">Lihat Bukti</button>' + (isReviewer?'<button class="btn mini" data-action="approve-expense" data-id="'+c.id+'">Approve</button><button class="btn mini" data-action="reject-expense" data-id="'+c.id+'">Reject</button>':'') + '</div></td></tr>').join("")+
       '</tbody></table></div></section>';
   } else if (page === "notifications") {
     el.innerHTML=head("Notifikasi","Riwayat pengajuan dan keputusan.")+
