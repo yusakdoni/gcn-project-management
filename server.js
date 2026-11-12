@@ -146,6 +146,8 @@ app.get('/api/admin/audit-logs', requireAuth, requireRole('admin'), (_req, res) 
 });
 const {setupExpenseApi}=require('./expense-api');
 setupExpenseApi(app, db, requireAuth, requireRole);
+const {setupInvoiceApi}=require('./invoice-api');
+setupInvoiceApi(app,db,requireAuth);
 
 // Frontend assets are public static code; the protected HTML page and APIs still require a session.
 app.get('/styles.css', (_req, res) => res.sendFile(path.join(publicDir, 'styles.css')));
