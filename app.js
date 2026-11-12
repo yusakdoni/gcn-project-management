@@ -49,7 +49,7 @@ function nav() {
     ["dashboard", "Dashboard"],
     ["projects", "Proyek"],
     ["finance", "Anggaran & Biaya"],
-    ...(currentUser?.role === "project_manager" ? [["approvals", "Persetujuan"]] : []),
+    ...(["project_manager","admin"].includes(currentUser?.role) ? [["approvals", currentUser?.role==="admin"?"Monitoring Approval":"Persetujuan"]] : []),
     ["notifications", "Notifikasi" + (notices.filter(n => !n.readAt).length ? " (" + notices.filter(n => !n.readAt).length + ")" : "")],
     ["invoices", "Invoice & Pembayaran"],
     ["reports", "Laporan"],
@@ -155,7 +155,8 @@ function render() {
       '</tbody></table></div></section>';
   } else if (page === "approvals") {
     const pending=costs.filter(c=>["PENDING_APPROVAL","CANCEL_PENDING"].includes(c.status));
-    el.innerHTML=head("Approval Inbox","Permintaan biaya untuk proyek yang ditugaskan kepada Anda.")+
+    const isReviewer=currentUser?.role==="project_manager";
+    el.innerHTML=head(isReviewer?"Approval Inbox":"Monitoring Approval",isReviewer?"Permintaan biaya untuk proyek yang ditugaskan kepada Anda.":"Pantau pengajuan biaya seluruh proyek. Keputusan hanya dapat dilakukan PM/PIC yang ditugaskan.")+
       '<section class="panel"><div class="tablewrap"><table><thead><tr><th>Proyek</th><th>Pengeluaran</th><th>Nominal</th><th>Status</th><th>Bukti & Keputusan</th></tr></thead><tbody>'+
       pending.map(c=>'<tr><td>'+escapeHTML(projects.find(p=>p.id===c.projectId)?.name||"—")+'</td><td>'+escapeHTML(c.description)+'</td><td>'+money(c.amount)+'</td><td>'+escapeHTML(c.status)+'</td><td><div class="actions"><button class="btn mini" data-action="view-receipt" data-id="'+c.id+'">Lihat Bukti</button><button class="btn mini" data-action="approve-expense" data-id="'+c.id+'">Approve</button><button class="btn mini" data-action="reject-expense" data-id="'+c.id+'">Reject</button></div></td></tr>').join("")+
       '</tbody></table></div></section>';
