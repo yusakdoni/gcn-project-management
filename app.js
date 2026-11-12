@@ -154,6 +154,7 @@ let managerUsers = [];
 let allUsers = [];
 let notices = [];
 let activeDraftId = null;
+let expenseSaving = false;
 let localPreviewUrl = null;
 const money = (n) =>
   new Intl.NumberFormat("id-ID", {
@@ -276,7 +277,7 @@ function render() {
     const canCreate = ["admin","finance_staff"].includes(currentUser?.role);
     const expenseAction = (c) => {
       const actions = [];
-      if (c.receipt) actions.push('<button class="btn mini" data-action="view-receipt" data-id="'+c.id+'">Lihat Bukti</button>');
+      if (c.receipt) actions.push('<button class="btn mini" data-action="view-receipt" data-id="'+c.id+'">Lihat Bukti</button><button class="btn mini" data-action="download-receipt" data-id="'+c.id+'">Unduh</button>');
       if (c.createdBy === currentUser?.id && ["DRAFT","REJECTED"].includes(c.status)) {
         actions.push('<button class="btn mini" data-action="edit-expense" data-id="'+c.id+'">Edit</button>');
         if (c.status === "DRAFT") actions.push('<button class="btn mini" data-action="delete-cost" data-id="'+c.id+'">Hapus Draft</button>');
@@ -355,7 +356,7 @@ function projectModal() {
  modal("Tambah Proyek",'<label class="field">Nama Proyek<input id="pn" required></label><label class="field">Klien<input id="pc" required></label><label class="field">Project Manager<select id="pmuser">'+managers+'</select></label><div class="row"><label class="field">Tanggal Mulai<input id="pstart" type="date" required></label><label class="field">Deadline<input id="pdue" type="date" required></label></div><div class="row"><label class="field">Nilai Kontrak (Rp)<input id="pcontract" type="number" min="0" required></label><label class="field">Anggaran (Rp)<input id="pbudget" type="number" min="0" required></label>',"addProject()");
 }
 async function addProject() {
- const fields={name:pn.value.trim(),client:pc.value.trim(),managerUserId:pmuser.value?Number(pmuser.value):null,start:pstart.value,due:pdue.value,contract:Number(pcontract.value),budget:Number(pbudget.value)};
+ const fields={name:pn.value.trim(),client:pc.value.trim(),managerUserId:document.getElementById("pmuser").value?Number(document.getElementById("pmuser").value):null,start:pstart.value,due:pdue.value,contract:Number(pcontract.value),budget:Number(pbudget.value)};
  if(!fields.name||!fields.client||!fields.start||!fields.due||fields.due<fields.start||!validMoney(fields.contract)||!validMoney(fields.budget)){alert("Lengkapi data proyek yang valid.");return;}
  try{await api("/api/projects","POST",fields);closeModal();await reloadData();flash("Proyek ditambahkan ke server.");}catch(e){alert(e.message);}
 }
@@ -373,22 +374,24 @@ function assignManagerModal(id) {
  modal("Tugaskan Project Manager",'<p>'+escapeHTML(p.name)+'</p><label class="field">Project Manager<select id="managerSelect">'+managerUsers.map(u=>'<option value="'+u.id+'" '+(p.managerUserId===u.id?'selected':'')+'>'+escapeHTML(u.fullName)+'</option>').join("")+'</select></label>',"assignManager("+id+")");
 }
 async function assignManager(id) {
- if(!managerSelect?.value){alert("Buat akun Project Manager terlebih dahulu.");return;}
- try{await api("/api/projects/"+id+"/assign-manager","POST",{userId:Number(managerSelect.value)});closeModal();await reloadData();flash("Project Manager ditugaskan.");}catch(e){alert(e.message);}
+ const selectedManager=document.getElementById("managerSelect");
+ if(!selectedManager?.value){alert("Buat akun Project Manager terlebih dahulu.");return;}
+ try{await api("/api/projects/"+id+"/assign-manager","POST",{userId:Number(selectedManager.value)});closeModal();await reloadData();flash("Project Manager ditugaskan.");}catch(e){alert(e.message);}
 }
 function assignMemberModal(id) {
  const candidates=allUsers.filter(u=>u.role==="finance_staff"||u.role==="project_staff");
  modal("Tugaskan Anggota Proyek",'<label class="field">Pengguna<select id="memberSelect">'+candidates.map(u=>'<option value="'+u.id+'">'+escapeHTML(u.fullName)+' ('+escapeHTML(u.role)+')</option>').join("")+'</select></label>',"assignMember("+id+")");
 }
 async function assignMember(id) {
- if(!memberSelect?.value){alert("Buat akun staf terlebih dahulu.");return;}
- try{await api("/api/projects/"+id+"/assign-member","POST",{userId:Number(memberSelect.value)});closeModal();flash("Anggota proyek ditugaskan.");}catch(e){alert(e.message);}
+ const selectedMember=document.getElementById("memberSelect");
+ if(!selectedMember?.value){alert("Buat akun staf terlebih dahulu.");return;}
+ try{await api("/api/projects/"+id+"/assign-member","POST",{userId:Number(selectedMember.value)});closeModal();flash("Anggota proyek ditugaskan.");}catch(e){alert(e.message);}
 }
 function costModal(existing=null) {
  activeDraftId=existing?.id||null;
  const options=projects.map(p=>'<option value="'+p.id+'" '+(p.id===existing?.projectId?'selected':'')+'>'+escapeHTML(p.code)+' — '+escapeHTML(p.name)+'</option>').join("");
  const c=existing||{};
- const statusNote=existing?.receipt?'<p id="storedReceiptNote">Bukti tersimpan: '+escapeHTML(existing.receipt.filename)+' <button type="button" class="btn mini" data-action="view-receipt" data-id="'+existing.id+'">Lihat</button> <button type="button" class="btn mini" data-action="delete-receipt" data-id="'+existing.id+'">Hapus Bukti</button></p>':'';
+ const statusNote=existing?.receipt?'<p id="storedReceiptNote">Bukti tersimpan: '+escapeHTML(existing.receipt.filename)+' <button type="button" class="btn mini" data-action="view-receipt" data-id="'+existing.id+'">Lihat</button> <button type="button" class="btn mini" data-action="download-receipt" data-id="'+existing.id+'">Unduh</button> <button type="button" class="btn mini" data-action="delete-receipt" data-id="'+existing.id+'">Hapus Bukti</button></p>':'';
  const footer='<div class="modal-footer"><button type="button" class="btn" data-action="close-modal">Batal</button><button class="btn" type="submit">Simpan Draft</button><button class="btn primary" type="button" data-action="submit-cost-modal">Ajukan Approval</button></div>';
  modal(existing?"Edit Pengeluaran":"Catat Biaya Aktual",'<label class="field">Proyek<select id="cp" '+(existing?'disabled':'')+'>'+options+'</select></label><div class="row"><label class="field">Kategori<select id="ccat">'+["Material","Tenaga kerja","Jasa","Transportasi","Lainnya"].map(x=>'<option '+(c.category===x?'selected':'')+'>'+x+'</option>').join("")+'</select></label><label class="field">Tanggal<input id="cdate" type="date" value="'+escapeHTML(c.date||new Date().toISOString().slice(0,10))+'" required></label></div><label class="field">Deskripsi<input id="cd" value="'+escapeHTML(c.description||"")+'" required></label><label class="field">Jumlah Biaya (Rp)<input id="ca" type="number" min="1" step="1" value="'+(c.amount||"")+'" required></label><label class="field">Bukti Pengeluaran (JPG, PNG, PDF, maks. 5 MB)<input id="receiptFile" data-action="receipt-file" type="file" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"></label><div id="receiptInfo" class="receipt-info">Pilih foto nota, kuitansi, invoice, atau bukti transfer.</div>'+statusNote,"addCost()",footer);
 }
@@ -406,12 +409,15 @@ async function fileBase64(file) {
  return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(",")[1]);reader.onerror=()=>reject(new Error("Gagal membaca file."));reader.readAsDataURL(file);});
 }
 async function addCost(submit=false) {
+ if(expenseSaving)return;
  const file=selectedReceipt(),amount=Number(ca.value);
  if(!cd.value.trim()||!cdate.value||!Number.isSafeInteger(amount)||amount<=0){alert("Lengkapi data biaya dengan nominal yang valid.");return;}
  if(file&&(file.size>5*1024*1024||file.size<4||!["image/jpeg","image/png","application/pdf"].includes(file.type))){alert("File harus JPG/PNG/PDF dengan ukuran maksimum 5 MB.");return;}
  let current=costs.find(c=>c.id===activeDraftId);
  if(submit&&!file&&!current?.receipt){alert("Lampirkan bukti pengeluaran sebelum approval.");return;}
  const fields={projectId:Number(cp.value),category:ccat.value,date:cdate.value,description:cd.value.trim(),amount};
+ expenseSaving=true;
+ document.querySelectorAll("#modal button").forEach(button=>{button.disabled=true;});
  try {
    const response=activeDraftId?await api("/api/expenses/"+activeDraftId,"PATCH",fields):await api("/api/expenses","POST",fields);
    activeDraftId=response.expense.id;
@@ -419,6 +425,7 @@ async function addCost(submit=false) {
    if(submit)await api("/api/expenses/"+activeDraftId+"/submit","POST",{});
    closeModal();await reloadData();flash(submit?"Biaya diajukan kepada Project Manager.":"Draft biaya tersimpan di server.");
  } catch(e){alert(e.message+"\nJika draft sudah dibuat, buka kembali dari daftar untuk melanjutkan.");await reloadData();}
+ finally {expenseSaving=false;document.querySelectorAll("#modal button").forEach(button=>{button.disabled=false;});}
 }
 async function delCost(id) {
  if(!confirm("Hapus draft pengeluaran?"))return;
