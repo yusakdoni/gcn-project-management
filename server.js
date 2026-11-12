@@ -15,8 +15,9 @@ const SESSION_SECRET = process.env.SESSION_SECRET;
 if (NODE_ENV === 'production' && (!SESSION_SECRET || SESSION_SECRET.length < 32)) {
   throw new Error('SESSION_SECRET minimal 32 karakter wajib diatur untuk production.');
 }
+if (NODE_ENV === 'production' && !process.env.DATA_DIR) throw new Error('DATA_DIR harus menunjuk volume persisten sebelum deployment.');
 const secret = SESSION_SECRET || require('crypto').randomBytes(48).toString('hex');
-const dataDir = path.join(__dirname, 'data');
+const dataDir = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(__dirname, 'data');
 fs.mkdirSync(dataDir, { recursive: true });
 const db = new Database(path.join(dataDir, 'gcn-monitor.sqlite'));
 db.pragma('journal_mode = WAL');
@@ -43,17 +44,41 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 `);
 
 app.disable('x-powered-by');
+if (process.env.TRUST_PROXY === '1') app.set('trust proxy',1);
 app.use(helmet({ contentSecurityPolicy: { directives: {
   defaultSrc: ["'self'"], baseUri: ["'self'"], objectSrc: ["'none'"], frameAncestors: ["'none'"],
-  scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], imgSrc: ["'self'", 'data:'], connectSrc: ["'self'"]
+  scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], imgSrc: ["'self'", 'data:', 'blob:'], frameSrc: ["'self'", 'blob:'], connectSrc: ["'self'"]
 }}}));
+app.use('/api/expenses/:id/receipt', express.json({ limit: '7.5mb' }));
 app.use(express.json({ limit: '20kb' }));
 app.use(express.urlencoded({ extended: false, limit: '20kb' }));
+app.use('/api',(req,res,next)=>{
+ if(['GET','HEAD','OPTIONS'].includes(req.method))return next();
+ if(req.get('X-GCN-Request')!=='1')return res.status(403).json({error:'Header keamanan permintaan tidak valid.'});
+ next();
+});
+class SQLiteSessionStore extends session.Store {
+ constructor(database) {
+  super();
+  this.database=database;
+  database.exec('CREATE TABLE IF NOT EXISTS sessions (sid TEXT PRIMARY KEY, sess TEXT NOT NULL, expires_at INTEGER NOT NULL)');
+  database.prepare('DELETE FROM sessions WHERE expires_at < ?').run(Date.now());
+  this.getStmt=database.prepare('SELECT sess,expires_at FROM sessions WHERE sid=?');
+  this.setStmt=database.prepare('INSERT INTO sessions(sid,sess,expires_at) VALUES(?,?,?) ON CONFLICT(sid) DO UPDATE SET sess=excluded.sess,expires_at=excluded.expires_at');
+  this.deleteStmt=database.prepare('DELETE FROM sessions WHERE sid=?');
+  this.touchStmt=database.prepare('UPDATE sessions SET expires_at=? WHERE sid=?');
+ }
+ get(sid,cb){try{const row=this.getStmt.get(sid);if(!row||row.expires_at<Date.now())return cb(null,null);cb(null,JSON.parse(row.sess));}catch(e){cb(e);}}
+ set(sid,sess,cb){try{const exp=sess.cookie?.expires?new Date(sess.cookie.expires).getTime():Date.now()+4*60*60*1000;this.setStmt.run(sid,JSON.stringify(sess),exp);cb?.(null);}catch(e){cb?.(e);}}
+ destroy(sid,cb){try{this.deleteStmt.run(sid);cb?.(null);}catch(e){cb?.(e);}}
+ touch(sid,sess,cb){try{const exp=sess.cookie?.expires?new Date(sess.cookie.expires).getTime():Date.now()+4*60*60*1000;this.touchStmt.run(exp,sid);cb?.(null);}catch(e){cb?.(e);}}
+}
 app.use(session({
  name: 'gcn.sid', secret, resave: false, saveUninitialized: false,
+ store: new SQLiteSessionStore(db),
  cookie: { httpOnly: true, sameSite: 'lax', secure: NODE_ENV === 'production', maxAge: 1000 * 60 * 60 * 4 },
- // express-session's MemoryStore is for local demonstration only; replace for deployment.
 }));
+
 const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 8, standardHeaders: 'draft-7', legacyHeaders: false,
  message: { error: 'Terlalu banyak percobaan login. Coba lagi beberapa menit kemudian.' } });
 const log = db.prepare('INSERT INTO audit_logs(user_id, action, details, ip_address) VALUES(?,?,?,?)');
@@ -119,20 +144,22 @@ app.get('/api/admin/audit-logs', requireAuth, requireRole('admin'), (_req, res) 
  FROM audit_logs a LEFT JOIN users u ON u.id=a.user_id ORDER BY a.id DESC LIMIT 200`).all();
  res.json({ logs: rows });
 });
+const {setupExpenseApi}=require('./expense-api');
+setupExpenseApi(app, db, requireAuth, requireRole);
+const {setupInvoiceApi}=require('./invoice-api');
+setupInvoiceApi(app,db,requireAuth);
+
 // Frontend assets are public static code; the protected HTML page and APIs still require a session.
 app.get('/styles.css', (_req, res) => res.sendFile(path.join(publicDir, 'styles.css')));
 app.get('/app.js', (_req, res) => res.sendFile(path.join(publicDir, 'app.js')));
 app.get('/session-ui.js', (_req, res) => res.sendFile(path.join(publicDir, 'session-ui.js')));
 
-// Serve the existing demo only after a fresh server-side session check.
-app.use((req, res, next) => {
- if (req.path.startsWith('/api/')) return next();
- if (req.path === '/login' || req.path === '/health') return next();
- return requireAuth(req, res, next);
-});
-app.use(express.static(publicDir, { index: 'index.html', dotfiles: 'deny', setHeaders(res, filePath) {
- if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-store');
-}}));
+// Serve only explicitly enumerated frontend pages and assets. Never expose data/*.sqlite or source files.
+app.get('/',requireAuth,(_req,res)=>res.sendFile(path.join(publicDir,'index.html')));
+app.get('/index.html',requireAuth,(_req,res)=>res.sendFile(path.join(publicDir,'index.html')));
+app.use('/api',(_req,res)=>res.status(404).json({error:'API tidak ditemukan.'}));
+app.use((_req,res)=>res.status(404).send('Halaman tidak ditemukan.'));
+
 app.use((err, _req, res, _next) => {
  console.error('Request error:', err.message);
  res.status(500).json({ error: 'Terjadi kesalahan pada server.' });

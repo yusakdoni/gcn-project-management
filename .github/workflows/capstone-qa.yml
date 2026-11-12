@@ -1,0 +1,44 @@
+name: GCN Monitor Capstone QA
+on:
+  push:
+    branches:
+      - main
+      - feature/capstone-expense-receipts-approval
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - name: Build staging container
+        run: docker build -t gcn-monitor:ci .
+      - name: Smoke test persistent SQLite container
+        shell: bash
+        run: |
+          set -e
+          docker volume create gcn-monitor-ci
+          trap 'docker rm -f gcn-monitor-ci >/dev/null 2>&1 || true; docker volume rm gcn-monitor-ci >/dev/null 2>&1 || true' EXIT
+          SECRET=$(node -e "process.stdout.write(require('crypto').randomBytes(48).toString('hex'))")
+          docker run -d --name gcn-monitor-ci -e SESSION_SECRET="$SECRET" -v gcn-monitor-ci:/data -p 127.0.0.1:38976:3000 gcn-monitor:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:38976/health >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:38976/health
+          docker exec gcn-monitor-ci node -e "const D=require('better-sqlite3'); const db=new D('/data/gcn-monitor.sqlite');if(db.prepare('SELECT COUNT(*) n FROM projects').get().n!==4)process.exit(1);db.close();"
+          docker rm -f gcn-monitor-ci
+          docker run -d --name gcn-monitor-ci -e SESSION_SECRET="$SECRET" -v gcn-monitor-ci:/data -p 127.0.0.1:38976:3000 gcn-monitor:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:38976/health >/dev/null; then break; fi
+            sleep 1
+          done
+          docker exec gcn-monitor-ci node -e "const D=require('better-sqlite3'); const db=new D('/data/gcn-monitor.sqlite');if(db.prepare('SELECT COUNT(*) n FROM projects').get().n!==4)process.exit(1);db.close();"

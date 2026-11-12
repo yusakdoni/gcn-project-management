@@ -17,7 +17,7 @@ form.addEventListener('submit', async event => {
  if (!emailValue || !email.checkValidity() || !password.value) { showMessage('Masukkan email yang valid dan password Anda.'); (!emailValue || !email.checkValidity() ? email : password).focus(); return; }
  submitButton.disabled = true; buttonLabel.textContent = 'Memverifikasi akun…';
  try {
-  const response = await fetch('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body:JSON.stringify({email:emailValue,password:password.value}) });
+  const response = await fetch('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json','X-GCN-Request':'1'}, credentials:'same-origin', body:JSON.stringify({email:emailValue,password:password.value}) });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result.error || 'Login gagal. Silakan coba kembali.');
   window.location.replace('/');

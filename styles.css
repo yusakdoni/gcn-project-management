@@ -724,3 +724,13 @@ body {
     padding: 14px;
   }
 }
+
+/* Capstone expense receipts and approval inbox */
+.modal:has(#receiptFile) { width: min(650px, 100%); }
+.modal-footer { display:flex; align-items:center; justify-content:flex-end; gap:8px; margin-top:18px; flex-wrap:wrap; }
+.receipt-info { padding:10px; margin:8px 0 14px; border:1px dashed var(--line); background:#f8fafc; border-radius:9px; min-height:54px; overflow-wrap:anywhere; }
+.receipt-info p { margin:0 0 8px; }
+.receipt-preview { display:block; width:100%; max-height:240px; min-height:130px; object-fit:contain; background:white; border:1px solid var(--line); border-radius:7px; margin:8px 0; }
+.notification-item { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 4px; border-bottom:1px solid var(--line); }
+.notification-item small {display:block; color:var(--muted); margin-top:4px;}
+@media (max-width:650px) { .modal-footer .btn {flex:1 1 auto;} .notification-item {align-items:flex-start; flex-direction:column;} }
