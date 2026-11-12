@@ -2,7 +2,7 @@ FROM node:22-bookworm-slim
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
-COPY server.js expense-api.js app.js index.html styles.css login.html login.css login.js session-ui.js ./
+COPY server.js expense-api.js invoice-api.js app.js index.html styles.css login.html login.css login.js session-ui.js ./
 COPY assets/ ./assets/
 COPY scripts/ ./scripts/
 RUN mkdir -p /data && chown -R node:node /data /app
