@@ -174,6 +174,7 @@ const save = () => {
   }
 };
 const activeCosts = () => costs.filter((c) => ["APPROVED", "CANCEL_PENDING"].includes(c.status));
+const accessibleInvoices = () => invoices.filter(i => projects.some(p => p.id === i.projectId));
 const costSum = (id) => activeCosts().filter((c) => c.projectId === id).reduce((s, c) => s + c.amount, 0);
 const paid = (i) => i.payments.reduce((s, p) => s + p.amount, 0);
 const due = (i) => Math.max(0, i.amount - paid(i));
@@ -250,7 +251,7 @@ function render() {
         "Ringkasan kondisi proyek dan keuangan Anda.",
         addP,
       ) +
-      `<div class="kpis">${kpi("Total Proyek", projects.length, projects.filter((p) => p.status === "Berjalan").length + " proyek berjalan")}${kpi("Total Nilai Kontrak", money(total(projects, "contract")), "Akumulasi seluruh proyek")}${kpi("Biaya Aktual", money(total(activeCosts(), "amount")), "Catatan biaya simulasi")}${kpi("Outstanding Invoice", money(invoices.reduce((s, i) => s + due(i), 0)), invoices.filter((i) => due(i) > 0).length + " invoice belum lunas")}</div><div class="grid"><section class="panel"><h3>Daftar Proyek</h3><p>Ringkasan proyek demo</p>${table(projects.slice(0, 4), false)}</section><section class="panel"><h3>Status Invoice</h3><p>Tagihan yang perlu dipantau</p>${invoices.map((i) => `<p style="display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #eee;padding:10px 0"><span><b>${escapeHTML(i.number)}</b><br>${escapeHTML(i.client)}</span><b>${money(due(i))}<br><span class="status ${due(i) === 0 ? "green" : "amber"}">${due(i) === 0 ? "Lunas" : "Belum Lunas"}</span></b></p>`).join("")}</section></div>`;
+      `<div class="kpis">${kpi("Total Proyek", projects.length, projects.filter((p) => p.status === "Berjalan").length + " proyek berjalan")}${kpi("Total Nilai Kontrak", money(total(projects, "contract")), "Akumulasi seluruh proyek")}${kpi("Biaya Aktual", money(total(activeCosts(), "amount")), "Catatan biaya simulasi")}${kpi("Outstanding Invoice", money(accessibleInvoices().reduce((s, i) => s + due(i), 0)), accessibleInvoices().filter((i) => due(i) > 0).length + " invoice belum lunas")}</div><div class="grid"><section class="panel"><h3>Daftar Proyek</h3><p>Ringkasan proyek demo</p>${table(projects.slice(0, 4), false)}</section><section class="panel"><h3>Status Invoice</h3><p>Tagihan yang perlu dipantau</p>${accessibleInvoices().map((i) => `<p style="display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #eee;padding:10px 0"><span><b>${escapeHTML(i.number)}</b><br>${escapeHTML(i.client)}</span><b>${money(due(i))}<br><span class="status ${due(i) === 0 ? "green" : "amber"}">${due(i) === 0 ? "Lunas" : "Belum Lunas"}</span></b></p>`).join("")}</section></div>`;
   } else if (page === "projects") {
     let rows = projects.filter((p) =>
       (p.name + p.client + p.code).toLowerCase().includes(search.toLowerCase()),
@@ -303,10 +304,10 @@ function render() {
     el.innerHTML =
       head(
         "Invoice & Pembayaran",
-        "Kelola tagihan dan catat pembayaran masuk.",
-        '<button class="btn primary" data-action="invoice-modal">+ Buat Invoice</button>',
+        "Data invoice masih simulasi lokal pada browser (belum tersinkron antar pengguna).",
+        ["admin","finance_staff"].includes(currentUser?.role) ? '<button class="btn primary" data-action="invoice-modal">+ Buat Invoice</button>' : "",
       ) +
-      `<div class="kpis">${kpi("Total Invoice", money(total(invoices, "amount")), invoices.length + " invoice")}${kpi("Pembayaran Masuk", money(invoices.reduce((s, i) => s + paid(i), 0)), "Akumulasi pembayaran")}${kpi("Outstanding", money(invoices.reduce((s, i) => s + due(i), 0)), "Tagihan belum lunas")}</div><section class="panel"><div class="tablewrap"><table><thead><tr><th>No Invoice</th><th>Klien / Proyek</th><th>Jatuh Tempo</th><th>Nilai</th><th>Dibayar</th><th>Outstanding</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${invoices.map((i) => `<tr><td><b>${escapeHTML(i.number)}</b></td><td>${escapeHTML(i.client)}<small>${escapeHTML(projects.find((p) => p.id === i.projectId)?.code || "")}</small></td><td>${escapeHTML(i.due)}</td><td>${money(i.amount)}</td><td>${money(paid(i))}</td><td><b>${money(due(i))}</b></td><td><span class="status ${due(i) === 0 ? "green" : "amber"}">${due(i) === 0 ? "Lunas" : "Belum Lunas"}</span></td><td>${due(i) > 0 ? `<button class="btn mini" data-action="payment-modal" data-id="${i.id}">Catat Bayar</button>` : "—"}</td></tr>`).join("")}</tbody></table></div></section>`;
+      `<div class="kpis">${kpi("Total Invoice", money(total(accessibleInvoices(), "amount")), accessibleInvoices().length + " invoice")}${kpi("Pembayaran Masuk", money(accessibleInvoices().reduce((s, i) => s + paid(i), 0)), "Akumulasi pembayaran")}${kpi("Outstanding", money(accessibleInvoices().reduce((s, i) => s + due(i), 0)), "Tagihan belum lunas")}</div><section class="panel"><div class="tablewrap"><table><thead><tr><th>No Invoice</th><th>Klien / Proyek</th><th>Jatuh Tempo</th><th>Nilai</th><th>Dibayar</th><th>Outstanding</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${accessibleInvoices().map((i) => `<tr><td><b>${escapeHTML(i.number)}</b></td><td>${escapeHTML(i.client)}<small>${escapeHTML(projects.find((p) => p.id === i.projectId)?.code || "")}</small></td><td>${escapeHTML(i.due)}</td><td>${money(i.amount)}</td><td>${money(paid(i))}</td><td><b>${money(due(i))}</b></td><td><span class="status ${due(i) === 0 ? "green" : "amber"}">${due(i) === 0 ? "Lunas" : "Belum Lunas"}</span></td><td>${due(i) > 0 && ["admin","finance_staff"].includes(currentUser?.role) ? `<button class="btn mini" data-action="payment-modal" data-id="${i.id}">Catat Bayar</button>` : "—"}</td></tr>`).join("")}</tbody></table></div></section>`;
   } else if (page === "reports") {
     el.innerHTML =
       head(
@@ -314,7 +315,7 @@ function render() {
         "Ringkasan proyek dan ekspor data CSV.",
         '<button class="btn primary" data-action="export-csv">↓ Ekspor CSV</button>',
       ) +
-      `<div class="kpis">${kpi("Jumlah Proyek", projects.length, "Seluruh status")}${kpi("Total Anggaran", money(total(projects, "budget")), "Nilai rencana")}${kpi("Biaya Aktual", money(total(activeCosts(), "amount")), "Akumulasi biaya")}${kpi("Outstanding", money(invoices.reduce((s, i) => s + due(i), 0)), "Sisa tagihan")}</div><section class="panel"><h3>Ringkasan per Proyek</h3><p>Ekspor CSV untuk mengunduh laporan.</p>${table(projects, false)}</section>`;
+      `<div class="kpis">${kpi("Jumlah Proyek", projects.length, "Seluruh status")}${kpi("Total Anggaran", money(total(projects, "budget")), "Nilai rencana")}${kpi("Biaya Aktual", money(total(activeCosts(), "amount")), "Akumulasi biaya")}${kpi("Outstanding", money(accessibleInvoices().reduce((s, i) => s + due(i), 0)), "Sisa tagihan")}</div><section class="panel"><h3>Ringkasan per Proyek</h3><p>Ekspor CSV untuk mengunduh laporan.</p>${table(projects, false)}</section>`;
   }
 }
 function modal(title, body, submit, footer) {
@@ -510,6 +511,7 @@ function paymentModal(id) {
   );
 }
 function addPayment(id) {
+  if (!["admin","finance_staff"].includes(currentUser?.role)) { alert("Tidak berwenang."); return; }
   let i = invoices.find((i) => i.id === id),
     a = +payamount.value;
   if (!i || !Number.isFinite(a) || a <= 0 || a > due(i)) {
