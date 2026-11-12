@@ -1,0 +1,13 @@
+node_modules/
+.git/
+.github/
+.env
+.env.*
+data/
+test/
+artifacts/
+coverage/
+*.sqlite
+*.sqlite-*
+*.db
+*.log
