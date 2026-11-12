@@ -48,7 +48,7 @@ function businessRouter(db, requireAuth) {
   if(!Number.isSafeInteger(id)||!allowed(u,id)) return fail(res,403,'Akses proyek ditolak.');
   if(!['admin','project_staff','finance_staff'].includes(u.role)) return fail(res,403,'Peran tidak dapat mengajukan biaya.');
   const {category,description,amount,date}=req.body;
-  if(typeof category!=='string'||!category.trim()||typeof description!=='string'||!description.trim()||!Number.isSafeInteger(amount)||amount<=0||typeof date!=='string'||!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) return fail(res,400,'Data biaya tidak valid.');
+  if(typeof category!=='string'||!category.trim()||typeof description!=='string'||!description.trim()||!Number.isSafeInteger(amount)||amount<=0||typeof date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(date)) return fail(res,400,'Data biaya tidak valid.');
   try {
    const r=db.transaction(()=>{
     const inserted=db.prepare('INSERT INTO expenses(project_id,category,description,amount,expense_date,created_by) VALUES(?,?,?,?,?,?)').run(id,category.trim(),description.trim(),amount,date,u.id);
