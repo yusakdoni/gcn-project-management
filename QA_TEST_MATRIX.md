@@ -1,34 +1,38 @@
-# GCN Monitor — Matriks Pengujian
+# GCN Monitor — Matriks QA Expense & Approval v1.1
 
-Tanggal paket: 28 Oktober 2026. Status di bawah membedakan pemeriksaan yang dapat diulang di lingkungan build dari pengujian manual yang belum dilakukan.
+**Branch**: feature/capstone-expense-receipts-approval
 
-| ID | Modul | Skenario | Hasil yang diharapkan | Hasil aktual | Status | Bukti/catatan |
-|---|---|---|---|---|---|---|
-| AUTH-01 | Login | Kredensial valid | Sesi dibuat dan dashboard dibuka | Belum diuji end-to-end pada browser | NOT TESTED | Perlu `npm install`, buat akun, jalankan server |
-| AUTH-02 | Login | Password salah | HTTP 401, pesan generik | Belum diuji runtime | NOT TESTED | Implementasi ada di `server.js` |
-| AUTH-03 | Login | Input kosong | Validasi UI/backend menolak | Validasi ada pada kode, belum diuji browser | NOT TESTED | `login.js`, `server.js` |
-| AUTH-04 | Logout | Logout lalu akses halaman | Sesi dihapus, halaman mengarah ke login | Belum diuji runtime | NOT TESTED | `session-ui.js`, `server.js` |
-| AUTH-05 | Session | Cookie HttpOnly, SameSite=Lax | Browser tidak dapat membaca cookie melalui JS | Konfigurasi kode tersedia | NOT TESTED | Perlu inspeksi cookie browser |
-| AUTH-06 | Rate limit | Percobaan login berulang | Pembatasan 8 kali/15 menit/IP | Konfigurasi kode tersedia | NOT TESTED | In-memory limiter; reset saat restart |
-| RBAC-01 | Otorisasi | Role non-admin akses endpoint admin | HTTP 403 | Belum diuji runtime | NOT TESTED | `requireRole()` di `server.js` |
-| RBAC-02 | Otorisasi | Tanpa sesi akses API terlindungi | HTTP 401 | Belum diuji runtime | NOT TESTED | `requireAuth()` di `server.js` |
-| DATA-01 | Proyek/keuangan | CRUD dan refresh | Data konsisten | UI lama tetap menyimpan ke localStorage | NEEDS CONFIRMATION | Belum dipindahkan ke API/database server |
-| DATA-02 | Keuangan | Pembayaran melebihi saldo | Ditolak secara atomik | Belum tersedia pada backend | BLOCKED | Perlu implementasi modul keuangan server |
-| CSV-01 | CSV | delimiter, BOM, quote, CRLF | CSV dapat dibaca sesuai regional | Tes sintetis terdahulu lulus | PASS (synthetic) | Excel desktop belum diuji |
-| SEC-01 | XSS | Payload teks ditampilkan | Teks di-escape, tidak dieksekusi | Audit lama mencatat escape pada beberapa output | NEEDS CONFIRMATION | Uji semua field di browser |
-| SEC-02 | Secret | Cari kredensial dalam source | Tidak ada password demo hardcoded | Tidak ada password default di kode baru | PASS (code inspection) | Buat akun melalui CLI |
-| DB-01 | Database | SQLite auth dibuat saat server start | Tabel users/audit_logs tersedia | Kode inisialisasi tersedia | NOT TESTED | Butuh dependency terinstal |
-| DB-02 | PostgreSQL | Jalankan skema target | Tabel bisnis + constraint tersedia | Skema proposal ditulis | NOT TESTED | Belum dijalankan pada PostgreSQL |
-| UI-01 | Login | Responsif desktop/tablet/mobile | Form terbaca dan dapat dipakai | CSS responsive dibuat; belum browser-tested | NOT TESTED | Perlu screenshot uji ukuran layar |
-| PPT-01 | Presentasi | Selaras dengan implementasi | Klaim login/database akurat | PPT lama belum diperbarui pada paket ini | BLOCKED | Perlu finalisasi berdasarkan hasil runtime |
+## Verified via GitHub Actions CI
 
-## Tes yang harus dilakukan manual
+| ID | Uji | Status |
+|---|---|---|
+| API-01 | Penugasan PM dan pembatasan akses proyek | PASS |
+| API-02 | Pembuatan draft dan penolakan submit tanpa bukti | PASS |
+| API-03 | Penolakan file tidak valid dan >5 MB | PASS |
+| API-04 | Upload, download byte lampiran, hak akses dan HTTP 401/403 | PASS |
+| API-05 | Notifikasi submit dan budget tetap sebelum approve | PASS |
+| API-06 | PM approve, budget berkurang sekali, duplicate approve ditolak | PASS |
+| API-07 | Cancellation pending, approve, budget kembali sekali | PASS |
+| API-08 | Rejected expense tidak memengaruhi budget | PASS |
+| API-09 | Audit event pembatalan | PASS |
+| API-10 | Database/source tidak terekspos melalui static server | PASS |
+| API-11 | Session, proyek dan lampiran tetap ada setelah restart | PASS |
 
-1. Jalankan `npm install`, lalu `npm run check`.
-2. Buat akun admin melalui `npm run create-user`.
-3. Jalankan server dan uji login benar/salah, logout, refresh, serta membuka `/` tanpa sesi.
-4. Buat akun role staf dan pastikan endpoint `/api/admin/users` mengembalikan 403.
-5. Periksa cookie sesi dan respons header pada browser.
-6. Uji halaman login di desktop dan mobile.
-7. Uji semua alur proyek/biaya/invoice dan CSV pada browser.
-8. Jangan mengimpor data perusahaan sebelum migrasi, otorisasi data bisnis, dan backup diuji.
+Skenario di atas dikelompokkan ke dalam 6 subtest dan 1 parent test; CI menampilkan **7/7 PASS**. Ini adalah hasil pengujian runtime API, bukan bukti pengujian visual.
+
+## Manual QA — belum dilakukan
+
+| ID | Uji | Status |
+|---|---|---|
+| UI-01 | Field upload muncul setelah Jumlah Biaya | NOT TESTED |
+| UI-02 | Preview JPG, PNG dan PDF di Chrome/mobile | NOT TESTED |
+| UI-03 | Mengganti/menghapus lampiran saat draft | NOT TESTED |
+| UI-04 | Submit dan approval via dua browser/akun | NOT TESTED |
+| UI-05 | Cancellation, refresh angka anggaran, notifikasi | NOT TESTED |
+| UI-06 | Regression menu proyek, invoice, laporan dan CSV | NOT TESTED |
+| DEP-01 | Hosting HTTPS dan cookie Secure | NOT TESTED |
+| DEP-02 | Lampiran tetap ada setelah redeploy di hosting | NOT TESTED |
+| DB-01 | SQLite backup/restore termasuk lampiran | NOT TESTED |
+| MIG-01 | Migrasi data custom localStorage | NOT IMPLEMENTED |
+
+Simpan screenshot beserta catatan pengujian setelah tes manual benar-benar dijalankan. QA Oktober 2026 adalah dokumen historis untuk prototype sebelum fitur approval.
