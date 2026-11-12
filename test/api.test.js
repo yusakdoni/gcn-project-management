@@ -195,6 +195,35 @@ test('Complete GCN Monitor receipt and approval lifecycle',async(t)=>{
    assert.equal(restored.pragma('integrity_check',{simple:true}),'ok');
    restored.close();
  });
+ await t.test('Legacy browser migration dry-run is read-only and apply is idempotent',async()=>{
+   const {spawnSync}=require('node:child_process');
+   const file=path.join(dir,'legacy-export.json');
+   const raw={format:'GCN_MONITOR_LEGACY_EXPORT_v1',exportedAt:new Date().toISOString(),legacy:{
+     gcnP:[{id:991,code:'GCN-026'}],
+     gcnC:[{id:771,projectId:991,category:'Jasa',description:'Biaya historis dari browser',amount:35000,date:'2026-11-01'}],
+     gcnI:[{id:887,projectId:991,number:'INV-LEGACY-887',amount:50000,due:'2026-12-01',payments:[{amount:20000,date:'2026-11-05',note:'Termin pertama'}]}]
+   }};
+   fs.writeFileSync(file,JSON.stringify(raw));
+   const countBefore=db.prepare('SELECT COUNT(*) n FROM expenses').get().n;
+   const env={...process.env,DATA_DIR:dir};
+   const args=['scripts/import-legacy.js','--file',file,'--source-id','browser-UAT','--user-id',String(admin.id)];
+   const dry=spawnSync(process.execPath,args,{cwd:path.resolve(__dirname,'..'),env,encoding:'utf8'});
+   assert.equal(dry.status,0,dry.stderr);
+   assert.match(dry.stdout,/costsToDraft":1/);
+   assert.equal(db.prepare('SELECT COUNT(*) n FROM expenses').get().n,countBefore);
+   assert.equal(!!db.prepare("SELECT 1 FROM sqlite_master WHERE name='legacy_import_entries'").get(),false);
+   const output=path.join(dir,'pre-import-backup.sqlite');
+   const apply=spawnSync(process.execPath,[...args,'--apply','--backup-output',output],{cwd:path.resolve(__dirname,'..'),env,encoding:'utf8'});
+   assert.equal(apply.status,0,apply.stderr);
+   assert.equal(db.prepare('SELECT COUNT(*) n FROM expenses').get().n,countBefore+1);
+   assert.equal(db.prepare("SELECT status FROM expenses WHERE description='Biaya historis dari browser'").get().status,'DRAFT');
+   assert.equal(db.prepare("SELECT COUNT(*) n FROM invoices WHERE number='INV-LEGACY-887'").get().n,1);
+   assert.equal(db.prepare("SELECT COALESCE(SUM(amount),0) n FROM invoice_payments WHERE invoice_id=(SELECT id FROM invoices WHERE number='INV-LEGACY-887')").get().n,20000);
+   assert.ok(fs.existsSync(output));
+   const second=spawnSync(process.execPath,[...args,'--apply','--backup-output',path.join(dir,'pre-import-2.sqlite')],{cwd:path.resolve(__dirname,'..'),env,encoding:'utf8'});
+   assert.equal(second.status,0,second.stderr);
+   assert.equal(db.prepare("SELECT COUNT(*) n FROM expenses WHERE description='Biaya historis dari browser'").get().n,1);
+ });
  await t.test('Private database and persistence after restart',async()=>{
    const privateData=await request('/data/gcn-monitor.sqlite','GET',undefined,adminCookie);assert.equal(privateData.status,404);
    const privateSource=await request('/expense-api.js','GET',undefined,adminCookie);assert.equal(privateSource.status,404);
