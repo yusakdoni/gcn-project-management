@@ -50,6 +50,11 @@ app.use(helmet({ contentSecurityPolicy: { directives: {
 app.use('/api/expenses/:id/receipt', express.json({ limit: '7.5mb' }));
 app.use(express.json({ limit: '20kb' }));
 app.use(express.urlencoded({ extended: false, limit: '20kb' }));
+app.use('/api',(req,res,next)=>{
+ if(['GET','HEAD','OPTIONS'].includes(req.method))return next();
+ if(req.get('X-GCN-Request')!=='1')return res.status(403).json({error:'Header keamanan permintaan tidak valid.'});
+ next();
+});
 class SQLiteSessionStore extends session.Store {
  constructor(database) {
   super();
