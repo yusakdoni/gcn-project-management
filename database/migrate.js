@@ -6,7 +6,7 @@ const path = require('path');
 function migrateBusiness(db) {
   const directory = path.join(__dirname, 'migrations');
   db.exec('CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
-  const files = fs.readdirSync(directory).filter(name => /^\\d+.*\\.sql$/.test(name)).sort();
+  const files = fs.readdirSync(directory).filter(name => /^\d+.*\.sql$/.test(name)).sort();
   for (const file of files) {
     if (db.prepare('SELECT 1 FROM schema_migrations WHERE version=?').get(file)) continue;
     const sql = fs.readFileSync(path.join(directory, file), 'utf8');
