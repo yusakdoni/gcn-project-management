@@ -21,6 +21,7 @@ async function backupDatabase(sourcePath,targetPath) {
  const db=new Database(input,{readonly:true,fileMustExist:true});
  try {
    await db.backup(target);
+   fs.chmodSync(target,0o600);
    const copy=new Database(target,{readonly:true,fileMustExist:true});
    try {
      const integrity=copy.pragma('integrity_check',{simple:true});
