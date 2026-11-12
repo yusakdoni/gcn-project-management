@@ -42,7 +42,7 @@ function setupExpenseApi(app, db, requireAuth, requireRole) {
  const getProject = db.prepare('SELECT * FROM projects WHERE id=?');
  function canRead(user, projectId) {
    const p=getProject.get(projectId);
-   return !!p && (user.role==='admin' || p.manager_user_id===user.id || !!isMember.get(projectId,user.id));
+   return !!p && (['admin','super_admin','management'].includes(user.role) || p.manager_user_id===user.id || !!isMember.get(projectId,user.id));
  }
  function canReview(user, projectId) {
    const p=getProject.get(projectId);
@@ -60,8 +60,8 @@ function setupExpenseApi(app, db, requireAuth, requireRole) {
    const u=req.session.user;const all=db.prepare('SELECT * FROM projects ORDER BY id DESC').all();
    return res.json({projects:all.filter(p=>canRead(u,p.id)).map(projectRow)});
  });
- app.get('/api/project-managers',requireAuth,requireRole('admin'),(_req,res)=>res.json({users:db.prepare("SELECT id,full_name AS fullName FROM users WHERE role='project_manager' AND active=1 ORDER BY full_name").all()}));
- app.post('/api/projects',requireAuth,requireRole('admin'),(req,res)=>{
+ app.get('/api/project-managers',requireAuth,requireRole('admin','super_admin'),(_req,res)=>res.json({users:db.prepare("SELECT id,full_name AS fullName FROM users WHERE role='project_manager' AND active=1 ORDER BY full_name").all()}));
+ app.post('/api/projects',requireAuth,requireRole('admin','super_admin'),(req,res)=>{
    const b=req.body||{}; const budget=moneyInt(b.budget,true),contract=moneyInt(b.contract,true);
    if(!b.name||!b.client||!validDate(b.start)||!validDate(b.due)||b.due<b.start||budget===null||contract===null) return jsonError(res,400,'Data proyek tidak valid.');
    const managerId=b.managerUserId===null||b.managerUserId===undefined?null:toId(b.managerUserId);
@@ -74,26 +74,26 @@ function setupExpenseApi(app, db, requireAuth, requireRole) {
  app.patch('/api/projects/:id/progress',requireAuth,(req,res)=>{
    const id=toId(req.params.id),p=getProject.get(id),n=Number(req.body.progress),u=req.session.user;
    if(!p)return jsonError(res,404,'Proyek tidak ditemukan.');
-   if(!(u.role==='admin'||canReview(u,id)))return jsonError(res,403,'Tidak berwenang.');
+   if(!(['admin','super_admin'].includes(u.role)||canReview(u,id)))return jsonError(res,403,'Tidak berwenang.');
    if(!Number.isInteger(n)||n<0||n>100)return jsonError(res,400,'Progres harus 0–100.');
    db.prepare('UPDATE projects SET progress=?,status=? WHERE id=?').run(n,n===100?'Selesai':n>0?'Berjalan':'Perencanaan',id);
    res.json({project:projectRow(getProject.get(id))});
  });
- app.delete('/api/projects/:id',requireAuth,requireRole('admin'),(req,res)=>{
+ app.delete('/api/projects/:id',requireAuth,requireRole('admin','super_admin'),(req,res)=>{
    const id=toId(req.params.id);
    if(!getProject.get(id)) return jsonError(res,404,'Proyek tidak ditemukan.');
    if(db.prepare('SELECT 1 FROM expenses WHERE project_id=? LIMIT 1').get(id))return jsonError(res,409,'Proyek memiliki catatan biaya.');
    try{db.prepare('DELETE FROM projects WHERE id=?').run(id);res.json({ok:true});}
    catch(_e){return jsonError(res,409,'Proyek memiliki data terkait dan tidak dapat dihapus.');}
  });
- app.post('/api/projects/:id/assign-manager',requireAuth,requireRole('admin'),(req,res)=>{
+ app.post('/api/projects/:id/assign-manager',requireAuth,requireRole('admin','super_admin'),(req,res)=>{
    const id=toId(req.params.id),uid=toId(req.body.userId);
    const u=db.prepare("SELECT id,full_name FROM users WHERE id=? AND role='project_manager' AND active=1").get(uid);
    if(!getProject.get(id)||!u)return jsonError(res,400,'Proyek atau Project Manager tidak valid.');
    db.prepare('UPDATE projects SET manager_user_id=?,manager_name=? WHERE id=?').run(uid,u.full_name,id);
    res.json({project:projectRow(getProject.get(id))});
  });
- app.post('/api/projects/:id/assign-member',requireAuth,requireRole('admin'),(req,res)=>{
+ app.post('/api/projects/:id/assign-member',requireAuth,requireRole('admin','super_admin'),(req,res)=>{
    const id=toId(req.params.id),uid=toId(req.body.userId);
    if(!getProject.get(id)||!db.prepare('SELECT 1 FROM users WHERE id=? AND active=1').get(uid))return jsonError(res,400,'Proyek atau pengguna tidak valid.');
    db.prepare('INSERT OR IGNORE INTO project_members(project_id,user_id) VALUES(?,?)').run(id,uid);
