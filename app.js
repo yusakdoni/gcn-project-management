@@ -282,7 +282,7 @@ async function addCost(submit=false) {
  if(submit&&!file&&!current?.receipt){alert("Lampirkan bukti pengeluaran sebelum approval.");return;}
  if(submit){
   const project=projects.find(p=>p.id===Number(cp.value));
-  if(!project?.managerUserId){alert("Project Manager/PIC belum ditugaskan pada proyek ini. Minta Admin menetapkan reviewer terlebih dahulu. Simpan Draft tetap dapat digunakan.");return;}
+  if(!project?.managerUserId){alert("Pengajuan belum bisa dikirim karena proyek belum memiliki Project Manager/PIC.\\n\\nLangkah perbaikan: tutup formulir, buka Proyek → Detail → Tugaskan PM, pilih akun PM aktif yang berbeda dari pengaju. Setelah itu buka kembali Draft dan klik Ajukan Approval.\\n\\nData yang belum disimpan dapat disimpan sebagai Draft.");return;}
   if(project.managerUserId===currentUser?.id){alert("Pengaju tidak dapat menyetujui pengeluarannya sendiri.");return;}
  }
  const fields={projectId:Number(cp.value),category:ccat.value,date:cdate.value,description:cd.value.trim(),amount};
@@ -292,7 +292,10 @@ async function addCost(submit=false) {
    const response=activeDraftId?await api("/api/expenses/"+activeDraftId,"PATCH",fields):await api("/api/expenses","POST",fields);
    activeDraftId=response.expense.id;
    if(file)await api("/api/expenses/"+activeDraftId+"/receipt","PUT",{filename:file.name,mime:file.type,base64:await fileBase64(file)});
-   if(submit)await api("/api/expenses/"+activeDraftId+"/submit","POST",{});
+   if(submit){
+     const sent=await api("/api/expenses/"+activeDraftId+"/submit","POST",{});
+     if(sent.expense?.status!=="PENDING_APPROVAL")throw new Error("Server tidak mengonfirmasi status PENDING_APPROVAL. Periksa daftar pengeluaran.");
+   }
    closeModal();await reloadData();flash(submit?"Biaya diajukan kepada Project Manager.":"Draft biaya tersimpan di server.");
  } catch(e){alert((e.message||"Pengajuan gagal.")+"\nDraft yang sudah dibuat tetap tersimpan. Periksa status sebelum mengulang.");try{await reloadData();}catch(refreshError){console.error("Gagal memuat ulang:",refreshError);}}
  finally {expenseSaving=false;document.querySelectorAll("#modal button").forEach(button=>{button.disabled=false;});}
