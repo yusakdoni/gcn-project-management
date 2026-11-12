@@ -64,8 +64,11 @@ function setupExpenseApi(app, db, requireAuth, requireRole) {
  app.post('/api/projects',requireAuth,requireRole('admin'),(req,res)=>{
    const b=req.body||{}; const budget=moneyInt(b.budget,true),contract=moneyInt(b.contract,true);
    if(!b.name||!b.client||!validDate(b.start)||!validDate(b.due)||b.due<b.start||budget===null||contract===null) return jsonError(res,400,'Data proyek tidak valid.');
+   const managerId=b.managerUserId===null||b.managerUserId===undefined?null:toId(b.managerUserId);
+   const manager=managerId?db.prepare("SELECT id,full_name FROM users WHERE id=? AND role='project_manager' AND active=1").get(managerId):null;
+   if(managerId&&!manager)return jsonError(res,400,'Project Manager tidak valid.');
    const id=Date.now(); const code='GCN-'+String(id).slice(-8);
-   db.prepare('INSERT INTO projects(id,code,name,client,manager_name,status,progress,start_date,due_date,contract_amount,budget_amount) VALUES(?,?,?,?,?,?,?,?,?,?,?)').run(id,code,String(b.name).trim().slice(0,150),String(b.client).trim().slice(0,150),'','Perencanaan',0,b.start,b.due,contract,budget);
+   db.prepare('INSERT INTO projects(id,code,name,client,manager_name,manager_user_id,status,progress,start_date,due_date,contract_amount,budget_amount) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)').run(id,code,String(b.name).trim().slice(0,150),String(b.client).trim().slice(0,150),manager?.full_name||'',manager?.id||null,'Perencanaan',0,b.start,b.due,contract,budget);
    res.status(201).json({project:projectRow(getProject.get(id))});
  });
  app.patch('/api/projects/:id/progress',requireAuth,(req,res)=>{
