@@ -15,6 +15,7 @@ const SESSION_SECRET = process.env.SESSION_SECRET;
 if (NODE_ENV === 'production' && (!SESSION_SECRET || SESSION_SECRET.length < 32)) {
   throw new Error('SESSION_SECRET minimal 32 karakter wajib diatur untuk production.');
 }
+if (NODE_ENV === 'production' && !process.env.DATA_DIR) throw new Error('DATA_DIR harus menunjuk volume persisten sebelum deployment.');
 const secret = SESSION_SECRET || require('crypto').randomBytes(48).toString('hex');
 const dataDir = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(__dirname, 'data');
 fs.mkdirSync(dataDir, { recursive: true });
@@ -43,6 +44,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 `);
 
 app.disable('x-powered-by');
+if (process.env.TRUST_PROXY === '1') app.set('trust proxy',1);
 app.use(helmet({ contentSecurityPolicy: { directives: {
   defaultSrc: ["'self'"], baseUri: ["'self'"], objectSrc: ["'none'"], frameAncestors: ["'none'"],
   scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], imgSrc: ["'self'", 'data:', 'blob:'], frameSrc: ["'self'", 'blob:'], connectSrc: ["'self'"]
