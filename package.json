@@ -7,8 +7,10 @@
   "scripts": {
     "start": "node server.js",
     "create-user": "node scripts/create-user.js",
-    "check": "node --check server.js && node --check expense-api.js && node --check app.js && node --check login.js && node --check session-ui.js && node --check scripts/create-user.js && node --check test/api.test.js",
-    "test": "node --test test/api.test.js"
+    "check": "node --check server.js && node --check expense-api.js && node --check invoice-api.js && node --check app.js && node --check login.js && node --check session-ui.js && node --check scripts/create-user.js && node --check scripts/backup-db.js && node --check scripts/verify-restore.js && node --check test/api.test.js && node --check test/browser-smoke.cjs",
+    "test": "node --test test/api.test.js",
+    "backup": "node scripts/backup-db.js",
+    "verify-restore": "node scripts/verify-restore.js"
   },
   "engines": {
     "node": ">=20"
