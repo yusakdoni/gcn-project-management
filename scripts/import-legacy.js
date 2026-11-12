@@ -24,10 +24,10 @@ function planImport(db,legacy,sourceId,userId){
  const user=db.prepare('SELECT id,role,active FROM users WHERE id=?').get(userId);
  if(!user||!user.active||user.role!=='admin')throw Error('User import harus akun admin aktif.');
  if(!/^[a-zA-Z0-9_-]{3,64}$/.test(sourceId))throw Error('source-id harus 3–64 karakter alfanumerik, dash atau underscore.');
- db.exec('CREATE TABLE IF NOT EXISTS legacy_import_entries (source_key TEXT PRIMARY KEY,entity TEXT NOT NULL,imported_id INTEGER NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
+ const hasHistory=!!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='legacy_import_entries'").get();
  const existingProject=db.prepare('SELECT id,code FROM projects WHERE code=?');
  const existingInvoice=db.prepare('SELECT id FROM invoices WHERE number=? COLLATE NOCASE');
- const seen=db.prepare('SELECT 1 FROM legacy_import_entries WHERE source_key=?');
+ const seen=hasHistory?db.prepare('SELECT 1 FROM legacy_import_entries WHERE source_key=?'):{get:()=>undefined};
  const projectByLegacyId=new Map();
  const issues=[],projects=[],costs=[],invoices=[];
  for(const p of legacy.projects){
@@ -70,7 +70,8 @@ async function main(){
  const raw=fs.readFileSync(path.resolve(file),'utf8');
  if(raw.length>10_000_000)throw Error('File JSON terlalu besar; lakukan review manual.');
  const legacy=validateExport(JSON.parse(raw));
- const db=new Database(source(),{fileMustExist:true});db.pragma('foreign_keys=ON');
+ const dryRun=!process.argv.includes('--apply');
+ const db=new Database(source(),{fileMustExist:true,readonly:dryRun});db.pragma('foreign_keys=ON');
  let plan;
  try{
   plan=planImport(db,legacy,sourceId,userId);
@@ -82,6 +83,7 @@ async function main(){
   if(!out)throw Error('Mode --apply wajib --backup-output untuk backup database.');
   await backupDatabase(source(),out);
   db.transaction(()=>{
+   db.exec('CREATE TABLE IF NOT EXISTS legacy_import_entries (source_key TEXT PRIMARY KEY,entity TEXT NOT NULL,imported_id INTEGER NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
    const addCost=db.prepare("INSERT INTO expenses(project_id,category,description,amount,expense_date,status,created_by) VALUES(?,?,?,?,?,'DRAFT',?)");
    const event=db.prepare("INSERT INTO expense_events(expense_id,actor_id,action,from_status,to_status,reason) VALUES(?,?, 'LEGACY_IMPORTED',NULL,'DRAFT','Imported from reviewed browser export')");
    const addInv=db.prepare('INSERT INTO invoices(project_id,number,amount,due_date,created_by) VALUES(?,?,?,?,?)');
