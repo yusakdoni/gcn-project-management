@@ -27,7 +27,7 @@ function setupInvoiceApi(app,db,requireAuth) {
  const member=db.prepare('SELECT 1 FROM project_members WHERE project_id=? AND user_id=?');
  const canRead=(user,id)=> {
    const p=getProject.get(id);
-   return !!p&&(user.role==='admin'||p.manager_user_id===user.id||!!member.get(id,user.id));
+   return !!p&&(['admin','super_admin','management'].includes(user.role)||p.manager_user_id===user.id||!!member.get(id,user.id));
  };
  const canWrite=(user,id)=> ['admin','finance_staff'].includes(user.role)&&canRead(user,id);
  const invoice=db.prepare('SELECT * FROM invoices WHERE id=?');
