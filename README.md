@@ -44,17 +44,37 @@ Buat akun dengan password unik dan kuat. Jangan menulis password, secret, atau d
 - npm test: integration test Node, Express, SQLite, file upload, authorization, approval, cancellation, budget, notifikasi, dan persistence setelah restart.
 - GitHub Actions: GCN Monitor Capstone QA pada branch ini.
 
-**Automated integration tests lulus 9/9** di GitHub Actions. Browser QA berbasis headless Chromium juga **PASS** untuk upload+preview PNG, pengajuan, PM melihat lampiran, approval, cancellation, dan render viewport mobile. Bukti screenshot tersedia pada artefak GitHub Actions run 43159288033. Uji perangkat fisik, PDF preview lintas browser, ekspor CSV Excel desktop, backup/restore, dan redeploy hosting nyata masih diperlukan. Jangan menyatakan production-ready.
+**Automated integration tests lulus 12/12** pada commit `1aea95d` melalui GitHub Actions run 43162856733, termasuk invoice dan pembayaran server-side, backup/restore, dan dry-run/migrasi data simulasi. Browser QA headless Chromium juga **PASS** (run 43162850993), mencakup upload bukti, approval, cancellation, invoice/payment, ekspor backup legacy, progres proyek, tampilan mobile, dan logout. Uji perangkat fisik, hosting HTTPS, dan backup/restore data aktual belum dilakukan. Jangan menyatakan production-ready.
 
 ## Batasan data lama
 
 Versi sebelumnya menyimpan proyek, biaya, invoice dan pembayaran di localStorage tiap browser.
 
-- **Data legacy localStorage tidak dihapus otomatis, tetapi belum dimigrasikan.** Ekspor dan tinjau data lama sebelum berpindah lingkungan/versi.
+- **Data legacy localStorage tidak dihapus otomatis dan belum dimigrasikan pada data aktual.** Ekspor lewat menu Backup Data Lama, lakukan review dan dry-run menggunakan `scripts/import-legacy.js`, lalu minta approval sebelum menerapkan migrasi.
 - Pada database server baru, contoh proyek GCN-023 hingga GCN-026 disediakan hanya sebagai simulasi bila belum ada data proyek.
 - Biaya simulasi versi lama tidak langsung menjadi APPROVED, karena tidak memiliki bukti atau keputusan PM.
-- **Invoice dan pembayaran masih modul demonstrasi localStorage**; belum tersinkron antar-user/device dan tidak aman untuk pencatatan operasional nyata.
+- **Invoice dan pembayaran sekarang tersimpan di SQLite server-side**, tetapi data contoh tetap simulasi dan belum boleh digunakan sebagai catatan keuangan operasional perusahaan.
 - Jangan memasukkan data finansial atau bukti transaksi GCN yang nyata sampai evaluasi keamanan, migrasi, backup dan izin operasional selesai.
+
+## Migrasi data browser (tidak dijalankan otomatis)
+
+1. Pada browser dengan data historis, login sebagai admin lalu buka **Backup Data Lama** dan unduh file JSON. Jangan menghapus browser storage.
+2. Periksa isi JSON untuk data personal atau komersial sebelum dipindahkan. Jangan commit arsip JSON ke GitHub.
+3. Buat akun admin di database tujuan dan pastikan seluruh kode proyek historis memiliki padanan di database; importer sengaja **memblokir proyek baru/tidak cocok**.
+4. Jalankan dry-run **read-only**: `node scripts/import-legacy.js --file /lokasi/backup-browser.json --source-id browser01 --user-id <ID_ADMIN>`.
+5. Jika dry-run tidak ada error dan pemilik data menyetujui, lakukan migrasi dengan flag `--apply` serta `--backup-output` yang menunjuk file backup baru pada lokasi privat **di luar database sumber**.
+6. Biaya historis masuk sebagai **DRAFT**, tidak otomatis mengurangi anggaran; invoice/pembayaran yang valid dimigrasikan tanpa menduplikasi nomor invoice.
+7. Setelah migrasi, verifikasi jumlah data, riwayat dan backup. Simpan arsip browser asli sampai seluruh proses diterima.
+
+**Belum ada migrasi data aktual atau akses ke localStorage Codespaces/browser pemilik.**
+
+## Database schema dan persistensi
+
+- SQLite di `DATA_DIR/gcn-monitor.sqlite`, satu instance server, WAL dan foreign key aktif.
+- Tabel: `users`, `sessions`, `audit_logs`, `projects`, `project_members`, `expenses`, `expense_receipts`, `expense_events`, `notifications`, `invoices`, `invoice_payments`; `legacy_import_entries` dibuat ketika proses migrasi dijalankan.
+- Schema diinisialisasi dengan `CREATE TABLE IF NOT EXISTS` pada startup. Untuk perubahan schema berikutnya, rencanakan versioned migration sebelum implementasi.
+- Backup online dengan `npm run backup -- --output /path/backup.sqlite`; verifikasi restore dengan `npm run verify-restore -- --file /path/backup.sqlite`.
+- File kuitansi berupa BLOB privat SQLite; backup online turut menyertakan lampiran.
 
 ## Deployment staging
 
