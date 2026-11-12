@@ -26,15 +26,15 @@ Skenario di atas dikelompokkan ke dalam 8 subtest dan 1 parent test; CI menampil
 
 | ID | Uji | Status |
 |---|---|---|
-| UI-01 | Field upload muncul setelah Jumlah Biaya | NOT TESTED |
-| UI-02 | Preview JPG, PNG dan PDF di Chrome/mobile | NOT TESTED |
+| UI-01 | Field upload muncul setelah Jumlah Biaya | PASS (headless Chromium) |
+| UI-02 | Preview PNG di headless Chromium | PASS |
 | UI-03 | Mengganti/menghapus lampiran saat draft | NOT TESTED |
-| UI-04 | Submit dan approval via dua browser/akun | NOT TESTED |
-| UI-05 | Cancellation, refresh angka anggaran, notifikasi | NOT TESTED |
+| UI-04 | Submit dan approval via dua browser context/akun | PASS |
+| UI-05 | Cancellation sampai status CANCELLED | PASS; angka API diuji terpisah |
 | UI-06 | Regression menu proyek, invoice, laporan dan CSV | NOT TESTED |
 | DEP-01 | Hosting HTTPS dan cookie Secure | NOT TESTED |
 | DEP-02 | Lampiran tetap ada setelah redeploy di hosting | NOT TESTED |
 | DB-01 | SQLite backup/restore termasuk lampiran | NOT TESTED |
 | MIG-01 | Migrasi data custom localStorage | NOT IMPLEMENTED |
 
-Simpan screenshot beserta catatan pengujian setelah tes manual benar-benar dijalankan. QA Oktober 2026 adalah dokumen historis untuk prototype sebelum fitur approval.
+**Browser evidence:** GitHub Actions run 43159288033, artifact capstone-browser-screenshots (expense-form, expense-pending, expense-approved, expense-cancelled, expense-mobile). Pengujian browser fisik, preview PDF dan JPG, serta UAT lintas perangkat nyata belum dilakukan. Simpan screenshot beserta catatan pengujian manual setelah benar-benar dijalankan. QA Oktober 2026 adalah dokumen historis untuk prototype sebelum fitur approval.
