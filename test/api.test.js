@@ -80,6 +80,35 @@ test('Complete GCN Monitor receipt and approval lifecycle',async(t)=>{
    const unauth=await request('/api/expenses/'+expenseId+'/receipt');assert.equal(unauth.status,401);
    const forbidden=await request('/api/expenses/'+expenseId+'/receipt','GET',undefined,otherCookie);assert.equal(forbidden.status,403);
  });
+ await t.test('PDF/JPG attachments, replacement and draft deletion',async()=>{
+   const created=await request('/api/expenses','POST',{projectId:1,category:'Material',description:'Lampiran percobaan',amount:12345,date:'2026-11-12'},adminCookie);
+   assert.equal(created.status,201);const id=created.data.expense.id;
+   const pdf=Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF');
+   const jpg=Buffer.from([255,216,255,224,1,2,3,255,217]);
+   const uploaded=await request('/api/expenses/'+id+'/receipt','PUT',{filename:'nota.pdf',mime:'application/pdf',base64:pdf.toString('base64')},adminCookie);
+   assert.equal(uploaded.status,200);assert.equal(uploaded.data.expense.receipt.mime,'application/pdf');
+   const wrong=await request('/api/expenses/'+id+'/receipt','PUT',{filename:'salah.jpg',mime:'image/jpeg',base64:pdf.toString('base64')},adminCookie);
+   assert.equal(wrong.status,400);
+   const replaced=await request('/api/expenses/'+id+'/receipt','PUT',{filename:'foto.jpg',mime:'image/jpeg',base64:jpg.toString('base64')},adminCookie);
+   assert.equal(replaced.status,200);assert.equal(replaced.data.expense.receipt.mime,'image/jpeg');
+   const read=await request('/api/expenses/'+id+'/receipt','GET',undefined,adminCookie);
+   assert.equal(read.status,200);assert.equal(read.headers.get('content-type'),'image/jpeg');
+   const removed=await request('/api/expenses/'+id+'/receipt','DELETE',undefined,adminCookie);
+   assert.equal(removed.status,200);
+   const empty=await request('/api/expenses/'+id+'/receipt','GET',undefined,adminCookie);
+   assert.equal(empty.status,404);
+   const deleted=await request('/api/expenses/'+id,'DELETE',undefined,adminCookie);
+   assert.equal(deleted.status,200);
+ });
+ await t.test('Over-budget expense approval is blocked',async()=>{
+   const draft=await request('/api/expenses','POST',{projectId:1,category:'Material',description:'Melebihi anggaran',amount:620000001,date:'2026-11-12'},adminCookie);
+   assert.equal(draft.status,201);const id=draft.data.expense.id;
+   const pngData=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO//E8YAAAAASUVORK5CYII=','base64');
+   assert.equal((await request('/api/expenses/'+id+'/receipt','PUT',{filename:'nota.png',mime:'image/png',base64:pngData.toString('base64')},adminCookie)).status,200);
+   assert.equal((await request('/api/expenses/'+id+'/submit','POST',{},adminCookie)).status,200);
+   const res=await request('/api/expenses/'+id+'/decision','POST',{decision:'approve'},pmCookie);
+   assert.equal(res.status,409);
+ });
  await t.test('Submit, notify, approve and prevent double budget impact',async()=>{
    const before=await request('/api/projects','GET',undefined,adminCookie);
    const remaining=before.data.projects.find(p=>p.id===1).remainingBudget;
