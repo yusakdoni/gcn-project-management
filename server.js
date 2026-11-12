@@ -163,8 +163,8 @@ app.post('/api/auth/logout', requireAuth, (req, res) => {
  });
 });
 // Server-side authorization example: only admins can list account metadata.
-app.get('/api/admin/users', requireAuth, requireRole('super_admin'), (_req, res) => {
- const users = db.prepare('SELECT id,email,full_name AS fullName,role,active,created_at AS createdAt FROM users ORDER BY id').all();
+app.get('/api/admin/users', requireAuth, requireRole('admin','super_admin'), (req, res) => {
+ const users = db.prepare('SELECT id,email,full_name AS fullName,role,active,created_at AS createdAt FROM users ORDER BY id').all().filter(u => req.session.user.role==='super_admin' || u.role!=='super_admin');
  res.json({ users });
 });
 app.get('/api/admin/audit-logs', requireAuth, requireRole('super_admin'), (_req, res) => {
