@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS users (
  email TEXT NOT NULL UNIQUE COLLATE NOCASE,
  full_name TEXT NOT NULL,
  password_hash TEXT NOT NULL,
- role TEXT NOT NULL CHECK(role IN ('admin','project_manager','project_staff','finance_staff')),
+ role TEXT NOT NULL CHECK(role IN ('admin','project_manager','project_staff','finance_staff','management','super_admin')),
  active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),
  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -42,6 +42,34 @@ CREATE TABLE IF NOT EXISTS audit_logs (
  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 `);
+
+
+// Extend the legacy SQLite CHECK constraint without deleting existing accounts.
+// SQLite cannot ALTER a CHECK constraint in place. Rebuild within a transaction.
+const userSchema = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'").get()?.sql || '';
+if (!userSchema.includes("'super_admin'")) {
+  db.pragma('foreign_keys = OFF');
+  try {
+    db.transaction(() => {
+      db.exec(`CREATE TABLE users_role_migration (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+        full_name TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL CHECK(role IN ('admin','project_manager','project_staff','finance_staff','management','super_admin')),
+        active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      INSERT INTO users_role_migration (id,email,full_name,password_hash,role,active,created_at,updated_at)
+      SELECT id,email,full_name,password_hash,role,active,created_at,updated_at FROM users;
+      DROP TABLE users;
+      ALTER TABLE users_role_migration RENAME TO users;`);
+      const violations = db.pragma('foreign_key_check');
+      if (violations.length) throw new Error('Foreign key check failed during role migration');
+    })();
+  } finally { db.pragma('foreign_keys = ON'); }
+}
 
 app.disable('x-powered-by');
 if (process.env.TRUST_PROXY === '1') app.set('trust proxy',1);
@@ -135,15 +163,44 @@ app.post('/api/auth/logout', requireAuth, (req, res) => {
  });
 });
 // Server-side authorization example: only admins can list account metadata.
-app.get('/api/admin/users', requireAuth, requireRole('admin'), (_req, res) => {
+app.get('/api/admin/users', requireAuth, requireRole('super_admin'), (_req, res) => {
  const users = db.prepare('SELECT id,email,full_name AS fullName,role,active,created_at AS createdAt FROM users ORDER BY id').all();
  res.json({ users });
 });
-app.get('/api/admin/audit-logs', requireAuth, requireRole('admin'), (_req, res) => {
+app.get('/api/admin/audit-logs', requireAuth, requireRole('super_admin'), (_req, res) => {
  const rows = db.prepare(`SELECT a.id,a.action,a.details,a.ip_address AS ipAddress,a.created_at AS createdAt,u.email
  FROM audit_logs a LEFT JOIN users u ON u.id=a.user_id ORDER BY a.id DESC LIMIT 200`).all();
  res.json({ logs: rows });
 });
+
+const VALID_ROLES = new Set(['admin','project_manager','project_staff','finance_staff','management','super_admin']);
+app.post('/api/admin/users', requireAuth, requireRole('super_admin'), (req,res) => {
+ const {email,fullName,role,password}=req.body||{};
+ const cleanEmail=String(email||'').trim().toLowerCase(), cleanName=String(fullName||'').trim();
+ if (!/^\\S+@\\S+\\.\\S+$/.test(cleanEmail)||!cleanName||cleanName.length>120||!VALID_ROLES.has(role)||typeof password!=='string'||password.length<12||password.length>200)
+   return res.status(400).json({error:'Data akun tidak valid.'});
+ try {
+   const result=db.prepare('INSERT INTO users(email,full_name,password_hash,role) VALUES(?,?,?,?)').run(cleanEmail,cleanName,bcrypt.hashSync(password,12),role);
+   writeLog(req,'USER_CREATED','userId='+result.lastInsertRowid+' role='+role);
+   return res.status(201).json({id:Number(result.lastInsertRowid),email:cleanEmail,fullName:cleanName,role});
+ } catch(e) {if(e.code?.startsWith('SQLITE_CONSTRAINT'))return res.status(409).json({error:'Email sudah digunakan.'});throw e;}
+});
+app.patch('/api/admin/users/:id', requireAuth, requireRole('super_admin'), (req,res) => {
+ const id=Number(req.params.id), current=db.prepare('SELECT id,role,active FROM users WHERE id=?').get(id);
+ if(!current)return res.status(404).json({error:'Pengguna tidak ditemukan.'});
+ const role=req.body?.role===undefined?current.role:req.body.role;
+ const active=req.body?.active===undefined?current.active:(req.body.active===true?1:req.body.active===false?0:null);
+ if(!VALID_ROLES.has(role)||active===null)return res.status(400).json({error:'Role/status tidak valid.'});
+ if(id===req.session.user.id&&(role!=='super_admin'||active!==1))return res.status(409).json({error:'Super Admin tidak dapat menonaktifkan atau menurunkan role sendiri.'});
+ if(current.role==='super_admin'&&(role!=='super_admin'||active!==1)) {
+   const count=db.prepare("SELECT COUNT(*) AS n FROM users WHERE role='super_admin' AND active=1").get().n;
+   if(count<=1)return res.status(409).json({error:'Super Admin aktif terakhir harus dipertahankan.'});
+ }
+ db.prepare('UPDATE users SET role=?,active=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(role,active,id);
+ writeLog(req,'USER_UPDATED','userId='+id+' role='+role+' active='+active);
+ return res.json({ok:true});
+});
+
 const {setupExpenseApi}=require('./expense-api');
 setupExpenseApi(app, db, requireAuth, requireRole);
 const {setupInvoiceApi}=require('./invoice-api');
