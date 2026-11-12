@@ -11,7 +11,7 @@
   const btn = document.getElementById('logoutBtn');
   if (btn) btn.addEventListener('click', async () => {
    btn.disabled = true; btn.textContent = 'Keluar…';
-   try { await fetch('/api/auth/logout', {method:'POST',credentials:'same-origin'}); } finally { window.location.replace('/login'); }
+   try { await fetch('/api/auth/logout', {method:'POST',credentials:'same-origin',headers:{'X-GCN-Request':'1'}}); } finally { window.location.replace('/login'); }
   });
  } catch (_) { window.location.replace('/login'); }
 })();
