@@ -36,6 +36,7 @@ async function login(page,email,password){await page.goto(base+'/login');await p
   await page.locator('#modal .modal').waitFor({state:'hidden'});
   await page.locator('button[data-page="finance"]').click();
   await page.locator('[data-action="cost-modal"]').click();
+  await page.locator('#cp').selectOption('1');
   assert.equal(await page.locator('#receiptFile').count(),1);
   await page.locator('#cd').fill('Kuitansi test browser');
   await page.locator('#ca').fill('100000');
