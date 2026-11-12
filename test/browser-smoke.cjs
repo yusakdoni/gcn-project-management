@@ -32,7 +32,7 @@ async function login(page,email,password){await page.goto(base+'/login');await p
   await page.locator('button[data-action="detail"][data-id="1"]').click();
   await page.locator('[data-action="assign-manager-modal"]').click();
   await page.locator('#managerSelect').selectOption(String(pm.id));
-  await page.locator('#modal button[type="submit"]').click();
+  await page.locator('#modal .btn.primary').click();
   await page.locator('#modal .modal').waitFor({state:'hidden'});
   await page.locator('button[data-page="finance"]').click();
   await page.locator('[data-action="cost-modal"]').click();
