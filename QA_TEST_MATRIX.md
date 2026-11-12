@@ -17,8 +17,10 @@
 | API-09 | Audit event pembatalan | PASS |
 | API-10 | Database/source tidak terekspos melalui static server | PASS |
 | API-11 | Session, proyek dan lampiran tetap ada setelah restart | PASS |
+| API-12 | Dua approval bersamaan hanya menerima satu keputusan | PASS |
+| API-13 | PDF/JPG, penggantian dan penghapusan draft, over-budget rejection | PASS |
 
-Skenario di atas dikelompokkan ke dalam 6 subtest dan 1 parent test; CI menampilkan **7/7 PASS**. Ini adalah hasil pengujian runtime API, bukan bukti pengujian visual.
+Skenario di atas dikelompokkan ke dalam 8 subtest dan 1 parent test; CI menampilkan **9/9 PASS**. Ini adalah hasil pengujian runtime API, bukan bukti pengujian visual.
 
 ## Manual QA — belum dilakukan
 
