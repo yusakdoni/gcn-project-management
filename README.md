@@ -44,7 +44,7 @@ Buat akun dengan password unik dan kuat. Jangan menulis password, secret, atau d
 - npm test: integration test Node, Express, SQLite, file upload, authorization, approval, cancellation, budget, notifikasi, dan persistence setelah restart.
 - GitHub Actions: GCN Monitor Capstone QA pada branch ini.
 
-**Automated integration tests lulus 7/7** pada CI branch ini, tetapi UI browser, kompatibilitas smartphone, export CSV desktop, backup/restore dan redeploy hosting belum diuji secara manual. Jangan menyatakan production-ready.
+**Automated integration tests lulus 9/9** pada CI branch ini, tetapi UI browser, kompatibilitas smartphone, export CSV desktop, backup/restore dan redeploy hosting belum diuji secara manual. Jangan menyatakan production-ready.
 
 ## Batasan data lama
 
