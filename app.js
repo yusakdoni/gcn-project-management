@@ -146,7 +146,7 @@ const validMoney = (value) =>
 
 let projects = [],
   costs = [],
-  invoices = load("gcnI", seedI),
+  invoices = [],
   page = "dashboard",
   search = "";
 let currentUser = null;
@@ -162,18 +162,6 @@ const money = (n) =>
     currency: "IDR",
     maximumFractionDigits: 0,
   }).format(n || 0);
-const save = () => {
-  try {
-    localStorage.setItem("gcnI", JSON.stringify(invoices));
-    return true;
-  } catch (error) {
-    console.error("Gagal menyimpan data demo.", error);
-    alert(
-      "Data tidak berhasil disimpan di browser. Periksa ruang penyimpanan atau izin browser. Jangan lanjutkan input sebelum data tersimpan.",
-    );
-    return false;
-  }
-};
 const activeCosts = () => costs.filter((c) => ["APPROVED", "CANCEL_PENDING"].includes(c.status));
 const accessibleInvoices = () => invoices.filter(i => projects.some(p => p.id === i.projectId));
 const costSum = (id) => activeCosts().filter((c) => c.projectId === id).reduce((s, c) => s + c.amount, 0);
@@ -194,6 +182,7 @@ function nav() {
     ["notifications", "Notifikasi" + (notices.filter(n => !n.readAt).length ? " (" + notices.filter(n => !n.readAt).length + ")" : "")],
     ["invoices", "Invoice & Pembayaran"],
     ["reports", "Laporan"],
+    ...(currentUser?.role==="admin" ? [["legacy", "Backup Data Lama"]] : []),
   ];
 
   const navElement = document.getElementById("nav");
@@ -238,6 +227,7 @@ function render() {
     notifications: "Notifikasi",
     invoices: "Invoice & Pembayaran",
     reports: "Laporan",
+    legacy: "Backup Data Lama",
     detail: "Detail Proyek",
   }[page];
   let el = document.getElementById("view");
@@ -305,10 +295,13 @@ function render() {
     el.innerHTML =
       head(
         "Invoice & Pembayaran",
-        "Data invoice masih simulasi lokal pada browser (belum tersinkron antar pengguna).",
+        "Invoice dan pembayaran demonstrasi tersimpan pada database server.",
         ["admin","finance_staff"].includes(currentUser?.role) ? '<button class="btn primary" data-action="invoice-modal">+ Buat Invoice</button>' : "",
       ) +
       `<div class="kpis">${kpi("Total Invoice", money(total(accessibleInvoices(), "amount")), accessibleInvoices().length + " invoice")}${kpi("Pembayaran Masuk", money(accessibleInvoices().reduce((s, i) => s + paid(i), 0)), "Akumulasi pembayaran")}${kpi("Outstanding", money(accessibleInvoices().reduce((s, i) => s + due(i), 0)), "Tagihan belum lunas")}</div><section class="panel"><div class="tablewrap"><table><thead><tr><th>No Invoice</th><th>Klien / Proyek</th><th>Jatuh Tempo</th><th>Nilai</th><th>Dibayar</th><th>Outstanding</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${accessibleInvoices().map((i) => `<tr><td><b>${escapeHTML(i.number)}</b></td><td>${escapeHTML(i.client)}<small>${escapeHTML(projects.find((p) => p.id === i.projectId)?.code || "")}</small></td><td>${escapeHTML(i.due)}</td><td>${money(i.amount)}</td><td>${money(paid(i))}</td><td><b>${money(due(i))}</b></td><td><span class="status ${due(i) === 0 ? "green" : "amber"}">${due(i) === 0 ? "Lunas" : "Belum Lunas"}</span></td><td>${due(i) > 0 && ["admin","finance_staff"].includes(currentUser?.role) ? `<button class="btn mini" data-action="payment-modal" data-id="${i.id}">Catat Bayar</button>` : "—"}</td></tr>`).join("")}</tbody></table></div></section>`;
+  } else if (page === "legacy") {
+    el.innerHTML = head("Backup Data Browser Lama","Ekspor arsip localStorage historis tanpa menghapusnya.")+
+      '<section class="panel"><h3>Arsip Data Legacy</h3><p>Proyek, biaya, dan invoice yang pernah tersimpan di browser sebelum server-side migration dapat diunduh untuk peninjauan. Impor tidak dilakukan otomatis agar tidak menduplikasi data dan tidak menandai biaya tanpa bukti sebagai disetujui.</p><button class="btn primary" data-action="export-legacy">Unduh JSON Data Lama</button></section>';
   } else if (page === "reports") {
     el.innerHTML =
       head(
@@ -336,8 +329,8 @@ async function api(path,method="GET",body) {
  return payload;
 }
 async function reloadData() {
- const [p,e,n]=await Promise.all([api("/api/projects"),api("/api/expenses"),api("/api/notifications")]);
- projects=p.projects; costs=e.expenses;notices=n.notifications;render();
+ const [p,e,n,i]=await Promise.all([api("/api/projects"),api("/api/expenses"),api("/api/notifications"),api("/api/invoices")]);
+ projects=p.projects; costs=e.expenses;notices=n.notifications;invoices=i.invoices;render();
 }
 async function boot() {
  try {
@@ -476,7 +469,8 @@ function invoiceModal() {
     "addInvoice()",
   );
 }
-function addInvoice() {
+async function addInvoice() {
+  if (!["admin","finance_staff"].includes(currentUser?.role)) { alert("Tidak berwenang."); return; }
   const p = projects.find((p) => p.id === Number(ip.value));
   const number = inum.value.trim(),
     amount = Number(ia.value);
@@ -498,23 +492,10 @@ function addInvoice() {
     alert("Nomor invoice sudah digunakan. Gunakan nomor yang unik.");
     return;
   }
-  const record = {
-    id: Date.now(),
-    projectId: p.id,
-    number,
-    client: p.client,
-    amount,
-    due: idate.value,
-    payments: [],
-  };
-  invoices.unshift(record);
-  if (!save()) {
-    invoices.shift();
-    return;
-  }
-  closeModal();
-  render();
-  flash("Invoice ditambahkan.");
+  try {
+    await api("/api/invoices","POST",{projectId:p.id,number,amount,due:idate.value});
+    closeModal();await reloadData();flash("Invoice tersimpan di server.");
+  } catch(error) { alert(error.message); }
 }
 function paymentModal(id) {
   let i = invoices.find((i) => i.id === id);
@@ -524,34 +505,38 @@ function paymentModal(id) {
     `addPayment(${id})`,
   );
 }
-function addPayment(id) {
+async function addPayment(id) {
   if (!["admin","finance_staff"].includes(currentUser?.role)) { alert("Tidak berwenang."); return; }
-  let i = invoices.find((i) => i.id === id),
-    a = +payamount.value;
-  if (!i || !Number.isFinite(a) || a <= 0 || a > due(i)) {
-    alert("Pembayaran tidak boleh melebihi outstanding invoice.");
-    return;
+  const invoice = invoices.find(i => i.id === id);
+  const amount = Number(payamount.value);
+  if (!invoice || !Number.isSafeInteger(amount) || amount <= 0 || amount > due(invoice) || !paydate.value) {
+    alert("Nilai pembayaran atau tanggal tidak valid."); return;
   }
-  invoices = invoices.map((x) =>
-    x.id === id
-      ? {
-          ...x,
-          payments: [
-            ...x.payments,
-            { amount: a, date: paydate.value, note: paynote.value },
-          ],
-        }
-      : x,
-  );
-  if (!save()) {
-    invoices = invoices.map((x) =>
-      x.id === id ? { ...x, payments: x.payments.slice(0, -1) } : x,
-    );
-    return;
+  try {
+    await api("/api/invoices/"+id+"/payments","POST",{amount,date:paydate.value,note:paynote.value});
+    closeModal();await reloadData();flash("Pembayaran tersimpan di server.");
+  } catch(error) {alert(error.message);}
+}
+function exportLegacyData() {
+  const payload = {
+    format: "GCN_MONITOR_LEGACY_EXPORT_v1",
+    exportedAt: new Date().toISOString(),
+    source: "current-browser-localStorage",
+    legacy: {}
+  };
+  for (const key of ["gcnP","gcnC","gcnI"]) {
+    const value = localStorage.getItem(key);
+    if (value !== null) {
+      try { payload.legacy[key] = JSON.parse(value); }
+      catch (_) { payload.legacy[key] = value; }
+    }
   }
-  closeModal();
-  render();
-  flash("Pembayaran dicatat.");
+  const blob = new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob),link=document.createElement("a");
+  link.href=url;link.download="gcn-monitor-legacy-browser-backup.json";
+  document.body.appendChild(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  flash("Backup data browser lama diunduh. Data asli tidak dihapus.");
 }
 function exportCSV() {
   let rows = [
@@ -651,6 +636,7 @@ document.addEventListener("click", (event) => {
     case "invoice-modal": invoiceModal(); break;
     case "payment-modal": paymentModal(id); break;
     case "export-csv": exportCSV(); break;
+    case "export-legacy": exportLegacyData(); break;
     case "close-modal": closeModal(); break;
   }
 });
