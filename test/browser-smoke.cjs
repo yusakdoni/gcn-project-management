@@ -124,8 +124,7 @@ async function login(page,email,password){await page.goto(base+'/login');await p
   const newRow=page.locator('tbody tr').filter({hasText:'Proyek Simulasi Browser QA'});
   await newRow.waitFor();
   await newRow.locator('[data-action="detail"]').click();
-  await page.locator('[data-action="update-progress"]').fill('40');
-  await page.locator('[data-action="update-progress"]').dispatchEvent('change');
+  await page.locator('[data-action="update-progress"]').evaluate(el=>{el.value='40';el.dispatchEvent(new Event('change',{bubbles:true}));});
   await page.getByText('40%',{exact:true}).first().waitFor();
   await page.screenshot({path:path.join(root,'artifacts','project-progress.png'),fullPage:true});
 
