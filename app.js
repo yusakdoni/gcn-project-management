@@ -279,6 +279,11 @@ async function addCost(submit=false) {
  if(file&&(file.size>5*1024*1024||file.size<4||!["image/jpeg","image/png","application/pdf"].includes(file.type))){alert("File harus JPG/PNG/PDF dengan ukuran maksimum 5 MB.");return;}
  let current=costs.find(c=>c.id===activeDraftId);
  if(submit&&!file&&!current?.receipt){alert("Lampirkan bukti pengeluaran sebelum approval.");return;}
+ if(submit){
+  const project=projects.find(p=>p.id===Number(cp.value));
+  if(!project?.managerUserId){alert("Project Manager/PIC belum ditugaskan pada proyek ini. Minta Admin menetapkan reviewer terlebih dahulu. Simpan Draft tetap dapat digunakan.");return;}
+  if(project.managerUserId===currentUser?.id){alert("Pengaju tidak dapat menyetujui pengeluarannya sendiri.");return;}
+ }
  const fields={projectId:Number(cp.value),category:ccat.value,date:cdate.value,description:cd.value.trim(),amount};
  expenseSaving=true;
  document.querySelectorAll("#modal button").forEach(button=>{button.disabled=true;});
@@ -288,7 +293,7 @@ async function addCost(submit=false) {
    if(file)await api("/api/expenses/"+activeDraftId+"/receipt","PUT",{filename:file.name,mime:file.type,base64:await fileBase64(file)});
    if(submit)await api("/api/expenses/"+activeDraftId+"/submit","POST",{});
    closeModal();await reloadData();flash(submit?"Biaya diajukan kepada Project Manager.":"Draft biaya tersimpan di server.");
- } catch(e){alert(e.message+"\nJika draft sudah dibuat, buka kembali dari daftar untuk melanjutkan.");await reloadData();}
+ } catch(e){alert((e.message||"Pengajuan gagal.")+"\nDraft yang sudah dibuat tetap tersimpan. Periksa status sebelum mengulang.");try{await reloadData();}catch(refreshError){console.error("Gagal memuat ulang:",refreshError);}}
  finally {expenseSaving=false;document.querySelectorAll("#modal button").forEach(button=>{button.disabled=false;});}
 }
 async function delCost(id) {
