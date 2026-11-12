@@ -21,6 +21,8 @@ fs.mkdirSync(dataDir, { recursive: true });
 const db = new Database(path.join(dataDir, 'gcn-monitor.sqlite'));
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+const { migrateBusiness } = require('./database/migrate');
+const { businessRouter } = require('./database/business-routes');
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (
  id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,6 +43,8 @@ CREATE TABLE IF NOT EXISTS audit_logs (
  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 `);
+
+migrateBusiness(db);
 
 app.disable('x-powered-by');
 app.use(helmet({ contentSecurityPolicy: { directives: {
@@ -119,6 +123,7 @@ app.get('/api/admin/audit-logs', requireAuth, requireRole('admin'), (_req, res) 
  FROM audit_logs a LEFT JOIN users u ON u.id=a.user_id ORDER BY a.id DESC LIMIT 200`).all();
  res.json({ logs: rows });
 });
+app.use('/api', businessRouter(db, requireAuth));
 // Frontend assets are public static code; the protected HTML page and APIs still require a session.
 app.get('/styles.css', (_req, res) => res.sendFile(path.join(publicDir, 'styles.css')));
 app.get('/app.js', (_req, res) => res.sendFile(path.join(publicDir, 'app.js')));
